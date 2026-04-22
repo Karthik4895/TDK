@@ -44,7 +44,8 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getAuth, onAuthStateChanged, signOut,
              createUserWithEmailAndPassword, signInWithEmailAndPassword,
-             GoogleAuthProvider, OAuthProvider, signInWithPopup }
+             GoogleAuthProvider, OAuthProvider, signInWithPopup,
+             RecaptchaVerifier, signInWithPhoneNumber }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const firebaseConfig = {
@@ -96,6 +97,9 @@
       p.addScope('email'); p.addScope('name');
       return signInWithPopup(auth, p);
     };
+    window._auth = auth;
+    window._RecaptchaVerifier = RecaptchaVerifier;
+    window._signInWithPhoneNumber = (phone, verifier) => signInWithPhoneNumber(auth, phone, verifier);
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -951,6 +955,18 @@
     .abandon-popup{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--dark);color:var(--gold-l);padding:14px 24px;border-radius:16px;font-size:14px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;display:none;text-align:center;max-width:300px}
     .abandon-popup button{margin-top:10px;padding:8px 18px;border-radius:50px;border:none;background:var(--gold);color:var(--dark);font-weight:700;cursor:pointer;font-size:13px}
     .abandon-popup .ab-close{position:absolute;top:8px;right:12px;background:none;border:none;color:var(--gold-l);font-size:16px;cursor:pointer;margin:0;padding:0}
+    /* Gift card amount selector */
+    .gc-amt-btn{padding:12px 8px;border:2px solid var(--border);border-radius:10px;background:var(--white);font-size:15px;font-weight:700;cursor:pointer;transition:.15s;color:var(--dark)}
+    .gc-amt-btn.active{border-color:var(--gold);background:var(--gold-p);color:var(--dark)}
+    .gc-amt-btn:hover{border-color:var(--gold)}
+    /* Gift card display in account */
+    .gc-card{border:1.5px dashed var(--gold);border-radius:12px;padding:12px 14px;margin-bottom:8px;background:linear-gradient(135deg,#faf0d0,#fff9ed);display:flex;justify-content:space-between;align-items:center}
+    .gc-card-code{font-family:monospace;font-size:13px;font-weight:700;color:var(--dark);letter-spacing:1px}
+    .gc-card-balance{font-size:16px;font-weight:900;color:var(--gold)}
+    .gc-card-meta{font-size:11px;color:#aaa;margin-top:2px}
+    .gc-card-copy{padding:4px 10px;border:1px solid var(--gold);border-radius:6px;background:none;cursor:pointer;font-size:11px;font-weight:600;color:var(--gold)}
+    /* OTP input group */
+    #recaptcha-container{margin-bottom:8px}
     /* iOS PWA install banner */
     .ios-install-banner{position:fixed;bottom:0;left:0;right:0;z-index:9998;background:var(--dark);color:var(--gold-l);padding:14px 20px 20px;display:none;box-shadow:0 -4px 20px rgba(0,0,0,.4)}
     .ios-install-banner h4{font-size:14px;font-weight:700;margin:0 0 8px;color:var(--gold)}
@@ -1408,26 +1424,55 @@
         <div class="auth-tabs">
           <button class="auth-tab active" id="tabSignIn" onclick="switchTab('in')">Sign In</button>
           <button class="auth-tab" id="tabSignUp" onclick="switchTab('up')">Sign Up</button>
+          <button class="auth-tab" id="tabPhone" onclick="switchTab('phone')">📱 OTP</button>
         </div>
-        <div class="mf-group">
-          <label class="mf-label">Email</label>
-          <input class="mf-input" id="authEmailInput" type="email" placeholder="you@email.com" />
+        <!-- Email/password fields -->
+        <div id="emailAuthFields">
+          <div class="mf-group">
+            <label class="mf-label">Email</label>
+            <input class="mf-input" id="authEmailInput" type="email" placeholder="you@email.com" />
+          </div>
+          <div class="mf-group">
+            <label class="mf-label">Password</label>
+            <input class="mf-input" id="authPwdInput" type="password" placeholder="Min. 6 characters" />
+          </div>
+          <div class="auth-err" id="authErr"></div>
+          <button class="auth-submit" id="authSubmitBtn" onclick="doEmailAuth()">Sign In</button>
+          <div class="auth-divider"><span>or continue with</span></div>
+          <button class="social-btn" onclick="doGoogle()">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Continue with Google
+          </button>
+          <button class="social-btn apple" onclick="doApple()">
+            <svg width="18" height="18" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-157.9-112.3C87.3 768.3 37.3 683.2 37.3 601.6c0-120.6 79.1-180.5 140.8-190.5 52.8-8.7 104.6-5.5 156.1 12.4 17.9 6.1 35.8 12.4 53.3 12.4 17.5 0 35.4-6.3 53.3-12.4 51.5-17.9 103.3-21.1 156.1-12.4 61.7 10 140.8 69.9 140.8 190.5 0 128.3-102.4 186-108.2 190.5zM554.1 88.4c13.5-20.1 23.7-48.4 23.7-76.7 0-3.8-.3-7.7-.7-11.5-22.4 .8-49 14.3-65.4 35.2-14.7 18.7-27.3 48.2-27.3 76.5 0 4.2.7 8.3 1 9.7 1.7.3 4.3.7 6.9.7 20.1 0 45.8-12.7 61.8-33.9z"/></svg>
+            Continue with Apple
+          </button>
         </div>
-        <div class="mf-group">
-          <label class="mf-label">Password</label>
-          <input class="mf-input" id="authPwdInput" type="password" placeholder="Min. 6 characters" />
+        <!-- Phone OTP fields -->
+        <div id="phoneAuthFields" style="display:none">
+          <div id="phoneStep">
+            <div class="mf-group">
+              <label class="mf-label">Mobile Number</label>
+              <div style="display:flex;gap:8px">
+                <span style="padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-weight:600;background:var(--bg2);white-space:nowrap">🇮🇳 +91</span>
+                <input class="mf-input" id="phoneInput" type="tel" placeholder="9876543210" maxlength="10" style="flex:1" oninput="this.value=this.value.replace(/\D/g,'')" />
+              </div>
+            </div>
+            <div class="auth-err" id="authErr"></div>
+            <div id="recaptcha-container"></div>
+            <button class="auth-submit" id="sendOtpBtn" onclick="sendOTP()">Send OTP →</button>
+          </div>
+          <div id="otpStep" style="display:none">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:14px;text-align:center">OTP sent to +91 <strong id="otpSentTo"></strong></p>
+            <div class="mf-group">
+              <label class="mf-label">Enter 6-digit OTP</label>
+              <input class="mf-input" id="otpInput" type="tel" placeholder="• • • • • •" maxlength="6" style="font-size:22px;letter-spacing:8px;text-align:center" oninput="this.value=this.value.replace(/\D/g,'');if(this.value.length===6)verifyOTP()" />
+            </div>
+            <div class="auth-err" id="authErr"></div>
+            <button class="auth-submit" id="verifyOtpBtn" onclick="verifyOTP()">Verify & Sign In</button>
+            <button onclick="resetPhoneAuth()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:6px">← Change number</button>
+          </div>
         </div>
-        <div class="auth-err" id="authErr"></div>
-        <button class="auth-submit" id="authSubmitBtn" onclick="doEmailAuth()">Sign In</button>
-        <div class="auth-divider"><span>or continue with</span></div>
-        <button class="social-btn" onclick="doGoogle()">
-          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          Continue with Google
-        </button>
-        <button class="social-btn apple" onclick="doApple()">
-          <svg width="18" height="18" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-157.9-112.3C87.3 768.3 37.3 683.2 37.3 601.6c0-120.6 79.1-180.5 140.8-190.5 52.8-8.7 104.6-5.5 156.1 12.4 17.9 6.1 35.8 12.4 53.3 12.4 17.5 0 35.4-6.3 53.3-12.4 51.5-17.9 103.3-21.1 156.1-12.4 61.7 10 140.8 69.9 140.8 190.5 0 128.3-102.4 186-108.2 190.5zM554.1 88.4c13.5-20.1 23.7-48.4 23.7-76.7 0-3.8-.3-7.7-.7-11.5-22.4 .8-49 14.3-65.4 35.2-14.7 18.7-27.3 48.2-27.3 76.5 0 4.2.7 8.3 1 9.7 1.7.3 4.3.7 6.9.7 20.1 0 45.8-12.7 61.8-33.9z"/></svg>
-          Continue with Apple
-        </button>
       </div>
     </div>
   </div>
@@ -1568,6 +1613,7 @@
           <button class="auth-tab" onclick="adminTab(this,'adminAnalyticsPanel');loadAdminAnalytics()">Analytics</button>
           <button class="auth-tab" onclick="adminTab(this,'adminCustomersPanel');loadAdminCustomers()">Customers</button>
           <button class="auth-tab" onclick="adminTab(this,'adminReturnsPanel');loadAdminReturns()">Returns</button>
+          <button class="auth-tab" onclick="adminTab(this,'adminGiftCardsPanel');loadAdminGiftCards()">Gift Cards</button>
         </div>
         <button onclick="adminExportCSV()" style="margin-left:10px;padding:6px 12px;border:1px solid var(--border);background:var(--white);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">⬇ CSV</button>
       </div>
@@ -1602,6 +1648,9 @@
       <div id="adminReturnsPanel" class="admin-panel" style="max-height:55vh;overflow-y:auto">
         <div id="adminReturnsList"><div style="text-align:center;padding:20px;color:#aaa">Loading…</div></div>
       </div>
+      <div id="adminGiftCardsPanel" class="admin-panel" style="max-height:55vh;overflow-y:auto">
+        <div id="adminGiftCardsList"><div style="text-align:center;padding:20px;color:#aaa">Loading…</div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1633,6 +1682,14 @@
         </div>
         <p class="ref-note">Friend gets ₹50 off · You earn ₹100 loyalty points 🌿</p>
       </div>
+      <!-- Gift Cards quick row -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button onclick="openGiftCardModal()" style="flex:1;padding:9px;border:1.5px solid var(--gold);background:var(--gold-p);border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--dark)">🎁 Buy Gift Card</button>
+        <button onclick="loadMyGiftCards();document.getElementById('myGiftCardsSection').style.display=document.getElementById('myGiftCardsSection').style.display==='none'?'block':'none'" style="flex:1;padding:9px;border:1.5px solid var(--border);background:var(--white);border-radius:10px;cursor:pointer;font-size:12px;font-weight:600;color:var(--dark)">🎟 My Gift Cards</button>
+      </div>
+      <div id="myGiftCardsSection" style="display:none;margin-bottom:14px">
+        <div id="myGiftCardsList"><div class="orders-empty">Loading…</div></div>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h4 style="margin:0;font-size:14px;color:var(--dark)">My Orders</h4>
         <span style="font-size:12px;color:var(--gold);font-weight:700" id="acctLoyalty"></span>
@@ -1652,7 +1709,7 @@
   <div class="cart-list" id="cartList"></div>
   <div class="cart-ft">
     <div class="coupon-row">
-      <input class="coupon-inp" id="couponInp" placeholder="Promo or referral code" />
+      <input class="coupon-inp" id="couponInp" placeholder="Promo, referral or gift card code" />
       <button class="coupon-apply" onclick="applyCoupon()">Apply</button>
     </div>
     <div class="coupon-tag" id="couponTag">
@@ -1689,6 +1746,41 @@
     <button class="pay-btn" id="upiBtn" onclick="startUPI()" disabled style="background:linear-gradient(135deg,#1e7b7b,#2a9d8f);margin-top:8px">📱 Pay via UPI / QR Code</button>
     <button class="pay-btn" id="codBtn" onclick="startCOD()" disabled style="background:linear-gradient(135deg,#6b3820,#8b4a2a);margin-top:8px">🏠 Cash on Delivery (+₹7 fee)</button>
     <button class="wa-btn" id="checkoutBtn" onclick="checkout()" disabled>💬 Order via WhatsApp</button>
+  </div>
+</div>
+
+<!-- ══════════ GIFT CARD MODAL ══════════ -->
+<div class="modal-overlay" id="giftCardModal">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-head">
+      <div><h3>🎁 Buy a Gift Card</h3></div>
+      <button class="modal-close" onclick="closeGiftCardModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#888;margin-bottom:16px">Send a henna gift to someone special — they can use it at checkout 🌿</p>
+      <div class="mf-group">
+        <label class="mf-label">Select Amount</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px">
+          <button class="gc-amt-btn active" onclick="selectGCAmount(this,250)">₹250</button>
+          <button class="gc-amt-btn" onclick="selectGCAmount(this,500)">₹500</button>
+          <button class="gc-amt-btn" onclick="selectGCAmount(this,1000)">₹1000</button>
+        </div>
+      </div>
+      <div class="mf-group">
+        <label class="mf-label">Recipient Name</label>
+        <input class="mf-input" id="gcRecipientName" type="text" placeholder="e.g. Priya" />
+      </div>
+      <div class="mf-group">
+        <label class="mf-label">Recipient Email <span style="color:#bbb;font-size:11px">(to send the code)</span></label>
+        <input class="mf-input" id="gcRecipientEmail" type="email" placeholder="priya@email.com" />
+      </div>
+      <div class="mf-group">
+        <label class="mf-label">Personal Message <span style="color:#bbb;font-size:11px">(optional)</span></label>
+        <textarea class="mf-input" id="gcMessage" rows="2" placeholder="Wishing you beautiful henna! 🌿" style="resize:none"></textarea>
+      </div>
+      <div class="auth-err" id="gcErr"></div>
+      <button class="auth-submit" onclick="buyGiftCard()">💳 Pay & Send Gift Card</button>
+    </div>
   </div>
 </div>
 
@@ -1906,10 +1998,13 @@ function openAuth(){
 }
 function closeAuth(){ document.getElementById('authModal').classList.remove('on'); }
 function switchTab(tab){
-  const isIn = tab==='in';
-  document.getElementById('tabSignIn').classList.toggle('active', isIn);
-  document.getElementById('tabSignUp').classList.toggle('active', !isIn);
-  document.getElementById('authSubmitBtn').textContent = isIn ? 'Sign In' : 'Create Account';
+  const isPhone = tab==='phone';
+  document.getElementById('tabSignIn').classList.toggle('active', tab==='in');
+  document.getElementById('tabSignUp').classList.toggle('active', tab==='up');
+  document.getElementById('tabPhone').classList.toggle('active', isPhone);
+  document.getElementById('emailAuthFields').style.display = isPhone ? 'none' : 'block';
+  document.getElementById('phoneAuthFields').style.display = isPhone ? 'block' : 'none';
+  if(!isPhone) document.getElementById('authSubmitBtn').textContent = tab==='in' ? 'Sign In' : 'Create Account';
   document.getElementById('authErr').textContent = '';
 }
 function setAuthErr(msg){ document.getElementById('authErr').textContent = msg; }
@@ -2408,6 +2503,12 @@ async function applyCoupon(){
         document.getElementById('couponTag').style.display='flex';
         document.getElementById('couponTagCode').textContent=code+' (referral)';
         toast('Referral code applied — ₹50 off! 🎉');
+      } else if(d.type==='gift_card'){
+        appliedCoupon={code,type:'flat',value:d.discount_value,is_gift_card:true};
+        appliedReferral=null;
+        document.getElementById('couponTag').style.display='flex';
+        document.getElementById('couponTagCode').textContent=code+' (gift card)';
+        toast(`Gift card applied — ₹${d.discount_value} balance 🎁`);
       } else {
         appliedCoupon={code,type:d.discount_type,value:d.discount_value};
         appliedReferral=null;
@@ -2700,6 +2801,165 @@ function resetAbandonTimer(){
   }, 45000);
 }
 function closeAbandon(){ document.getElementById('abandonPopup').style.display='none'; }
+
+/* ══════════ PHONE OTP AUTH ══════════ */
+let _recaptchaVerifier=null, _confirmationResult=null;
+
+async function sendOTP(){
+  const phone=document.getElementById('phoneInput').value.trim().replace(/\D/g,'');
+  if(phone.length!==10){ setAuthErr('Enter a valid 10-digit mobile number'); return; }
+  const fullPhone='+91'+phone;
+  const btn=document.getElementById('sendOtpBtn');
+  btn.disabled=true; btn.textContent='Sending…';
+  setAuthErr('');
+  try{
+    if(!_recaptchaVerifier){
+      _recaptchaVerifier=new window._RecaptchaVerifier(window._auth,'recaptcha-container',{
+        size:'invisible', callback:()=>{}, 'expired-callback':()=>{ _recaptchaVerifier=null; }
+      });
+    }
+    _confirmationResult=await window._signInWithPhoneNumber(fullPhone, _recaptchaVerifier);
+    document.getElementById('otpSentTo').textContent=phone;
+    document.getElementById('phoneStep').style.display='none';
+    document.getElementById('otpStep').style.display='block';
+    toast('OTP sent to +91'+phone+' 📱');
+  }catch(e){
+    const msg=e?.code==='auth/invalid-phone-number'?'Invalid phone number'
+      :e?.code==='auth/too-many-requests'?'Too many attempts. Try later.'
+      :'Failed to send OTP. Check the number and try again.';
+    setAuthErr(msg);
+    if(_recaptchaVerifier){ try{_recaptchaVerifier.clear();}catch(_){} _recaptchaVerifier=null; }
+    btn.disabled=false; btn.textContent='Send OTP →';
+  }
+}
+
+async function verifyOTP(){
+  const otp=document.getElementById('otpInput').value.trim();
+  if(otp.length!==6){ setAuthErr('Enter the 6-digit OTP'); return; }
+  const btn=document.getElementById('verifyOtpBtn');
+  btn.disabled=true; btn.textContent='Verifying…';
+  setAuthErr('');
+  try{
+    await _confirmationResult.confirm(otp);
+    closeAuth(); toast('Phone verified! Welcome 🌿');
+  }catch(e){
+    setAuthErr(e?.code==='auth/invalid-verification-code'?'Wrong OTP. Try again.':'Verification failed. Try again.');
+    btn.disabled=false; btn.textContent='Verify & Sign In';
+  }
+}
+
+function resetPhoneAuth(){
+  _confirmationResult=null;
+  document.getElementById('otpStep').style.display='none';
+  document.getElementById('phoneStep').style.display='block';
+  document.getElementById('otpInput').value='';
+  document.getElementById('phoneInput').value='';
+  const btn=document.getElementById('sendOtpBtn');
+  btn.disabled=false; btn.textContent='Send OTP →';
+  setAuthErr('');
+}
+
+/* ══════════ GIFT CARDS ══════════ */
+let _gcAmount=250;
+
+function selectGCAmount(btn,amount){
+  document.querySelectorAll('.gc-amt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  _gcAmount=amount;
+}
+
+function openGiftCardModal(){
+  if(!window._currentUser){ closeAccount(); openAuth(); toast('Please sign in to buy a gift card 🌿'); return; }
+  document.getElementById('gcRecipientName').value='';
+  document.getElementById('gcRecipientEmail').value='';
+  document.getElementById('gcMessage').value='';
+  document.getElementById('gcErr').textContent='';
+  document.getElementById('giftCardModal').classList.add('on');
+}
+function closeGiftCardModal(){ document.getElementById('giftCardModal').classList.remove('on'); }
+
+async function buyGiftCard(){
+  if(!window._currentUser) return;
+  const recipientName=document.getElementById('gcRecipientName').value.trim();
+  const recipientEmail=document.getElementById('gcRecipientEmail').value.trim();
+  const message=document.getElementById('gcMessage').value.trim();
+  if(!recipientName||!recipientEmail){ document.getElementById('gcErr').textContent='Please fill recipient name and email'; return; }
+  document.getElementById('gcErr').textContent='';
+  try{
+    const orderRes=await fetch('/create-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:_gcAmount*100,currency:'INR',receipt:'gc_'+Date.now()})});
+    if(!orderRes.ok) throw new Error('Order creation failed');
+    const orderData=await orderRes.json();
+    const options={
+      key:orderData.key_id, amount:orderData.amount, currency:'INR',
+      name:'Mehandi Tales By Divya', description:`₹${_gcAmount} Gift Card for ${recipientName}`,
+      order_id:orderData.order_id,
+      handler:async function(response){
+        try{
+          const vr=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature})});
+          const vd=await vr.json();
+          if(vd.success){
+            const gcRes=await fetch('/gift-cards/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+              user_id:window._currentUser.uid,
+              user_email:window._currentUser.email||'',
+              user_name:window._currentUser.displayName||'',
+              amount:_gcAmount,
+              recipient_name:recipientName,
+              recipient_email:recipientEmail,
+              message,
+              payment_id:response.razorpay_payment_id
+            })});
+            const gcData=await gcRes.json();
+            closeGiftCardModal();
+            toast(`🎁 Gift card sent! Code: ${gcData.code}`);
+          }
+        }catch(e){ toast('Error creating gift card. Contact support.'); }
+      },
+      prefill:{name:window._currentUser.displayName||'', email:window._currentUser.email||''},
+      theme:{color:'#BF8522'},
+      modal:{ondismiss:()=>{ toast('Payment cancelled'); }}
+    };
+    new Razorpay(options).open();
+  }catch(e){ document.getElementById('gcErr').textContent='Payment failed. Try again.'; }
+}
+
+async function loadMyGiftCards(){
+  if(!window._currentUser) return;
+  const el=document.getElementById('myGiftCardsList');
+  el.innerHTML='<div class="orders-empty">Loading…</div>';
+  try{
+    const res=await fetch(`/gift-cards/${encodeURIComponent(window._currentUser.uid)}`);
+    const cards=await res.json();
+    if(!cards.length){ el.innerHTML='<div class="orders-empty">No gift cards yet 🎁</div>'; return; }
+    el.innerHTML=cards.map(c=>`<div class="gc-card">
+      <div>
+        <div class="gc-card-code">${esc(c.code)}</div>
+        <div class="gc-card-meta">For: ${esc(c.recipient_name||'—')} · Value: ₹${c.value}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="gc-card-balance">₹${c.balance} left</div>
+        <button class="gc-card-copy" onclick="navigator.clipboard.writeText('${esc(c.code)}').then(()=>toast('Code copied! 📋'))">Copy</button>
+      </div>
+    </div>`).join('');
+  }catch(e){ el.innerHTML='<div class="orders-empty">Could not load gift cards</div>'; }
+}
+
+async function loadAdminGiftCards(){
+  const el=document.getElementById('adminGiftCardsList');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
+  try{
+    const res=await fetch(`/admin/gift-cards?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const cards=await res.json();
+    if(!cards.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No gift cards yet</div>'; return; }
+    el.innerHTML=cards.map(c=>`<div class="admin-order-row">
+      <div class="admin-order-meta">
+        <span style="font-family:monospace;font-size:12px;font-weight:700">${esc(c.code)}</span>
+        <span style="color:var(--gold);font-weight:700">₹${c.balance} / ₹${c.value}</span>
+        <span style="font-size:11px;color:#999;margin-left:auto">${new Date(c.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>
+      </div>
+      <div class="admin-order-items">To: ${esc(c.recipient_name||'—')} (${esc(c.recipient_email||'—')})</div>
+    </div>`).join('');
+  }catch(e){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Could not load</div>'; }
+}
 
 /* ══════════ REFERRAL ══════════ */
 async function loadReferralCode(){

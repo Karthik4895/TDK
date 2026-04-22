@@ -28,6 +28,7 @@ from app.memory import (
     get_analytics, get_customers,
     get_site_config, set_site_config,
     add_product_qa, answer_product_qa, get_product_qa,
+    create_gift_card, get_gift_cards_for_user, get_all_gift_cards, get_gift_card_by_code, redeem_gift_card,
 )
 from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL
 
@@ -543,6 +544,92 @@ async def get_referral(user_id: str, display_name: str = ""):
     return {"code": code, "uses": stats["uses"]}
 
 
+# ── Gift Cards ──────────────────────────────────────────────────────────────────
+
+class GiftCardBuyRequest(BaseModel):
+    user_id: str
+    user_email: str = ""
+    user_name: str = ""
+    amount: int
+    recipient_name: str
+    recipient_email: str
+    message: str = ""
+    payment_id: str = ""
+
+
+@app.post("/gift-cards/buy", tags=["gift-cards"])
+async def buy_gift_card(req: GiftCardBuyRequest):
+    """Create a gift card after payment"""
+    if not req.user_id.strip() or not req.recipient_email.strip():
+        raise HTTPException(status_code=422, detail="Missing required fields")
+    if req.amount < 100:
+        raise HTTPException(status_code=422, detail="Minimum gift card value is ₹100")
+    
+    code = create_gift_card(
+        req.user_id.strip(),
+        req.amount,
+        req.recipient_name,
+        req.recipient_email,
+        req.message,
+        req.payment_id,
+        buyer_email=req.user_email,
+        buyer_name=req.user_name,
+    )
+    logger.info("Gift card created: %s for %s", code, req.recipient_email)
+    
+    # Send email to recipient with gift card
+    await _send_gift_card_email(req.recipient_email, req.recipient_name, code, req.amount, req.message)
+    
+    return {"code": code, "amount": req.amount, "recipient": req.recipient_email}
+
+
+@app.get("/gift-cards/{user_id}", tags=["gift-cards"])
+async def fetch_gift_cards(user_id: str):
+    """Get gift cards bought by a user"""
+    return get_gift_cards_for_user(user_id.strip())
+
+
+@app.post("/gift-cards/validate", tags=["gift-cards"])
+async def validate_gift_card(req: dict):
+    """Validate and check balance of a gift card"""
+    code = req.get("code", "").strip()
+    if not code:
+        return {"valid": False, "message": "No code provided"}
+    
+    card = get_gift_card_by_code(code)
+    if not card:
+        return {"valid": False, "message": "Gift card not found"}
+    
+    if card["balance"] <= 0:
+        return {"valid": False, "message": "Gift card has no balance"}
+    
+    return {"valid": True, "balance": card["balance"], "code": code}
+
+
+@app.post("/gift-cards/redeem", tags=["gift-cards"])
+async def redeem_gift_card_endpoint(req: dict):
+    """Redeem/use a gift card for an order"""
+    code = req.get("code", "").strip()
+    user_id = req.get("user_id", "").strip()
+    amount = req.get("amount")
+    
+    if not code or not user_id:
+        raise HTTPException(status_code=422, detail="Code and user_id required")
+    
+    result = redeem_gift_card(code, user_id, amount)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error", "Redemption failed"))
+    
+    return result
+
+
+@app.get("/admin/gift-cards", tags=["admin"])
+async def admin_gift_cards(admin_email: str = ""):
+    """Get all gift cards (admin only)"""
+    _check_admin(admin_email)
+    return get_all_gift_cards()
+
+
 # ── Contact ─────────────────────────────────────────────────────────────────────
 
 class ContactRequest(BaseModel):
@@ -685,3 +772,50 @@ async def _send_contact_email(name: str, email: str, message: str):
             )
     except Exception as exc:
         logger.warning("Contact email failed: %s", exc)
+
+
+async def _send_gift_card_email(recipient_email: str, recipient_name: str, code: str, amount: int, message: str):
+    """Send gift card notification email to recipient"""
+    if not RESEND_API_KEY:
+        return
+    try:
+        message_html = f"<p><em>{message}</em></p>" if message else ""
+        html = f"""
+        <div style="font-family:Georgia,serif;max-width:580px;margin:auto;color:#3a1f10">
+          <div style="background:linear-gradient(135deg,#3A1F10,#6B3820);padding:32px;text-align:center">
+            <h1 style="color:#d4a84a;margin:0;font-size:28px">🎁 Gift Card Received!</h1>
+            <p style="color:#d4a84a;margin:8px 0 0;font-size:14px">From Mehandi Tales By Divya</p>
+          </div>
+          <div style="padding:32px;background:#fffdf8;border-bottom:3px solid #bf8522">
+            <p>Hi <strong>{recipient_name or 'there'}</strong>,</p>
+            <p>You've been gifted a <strong style="color:#bf8522">₹{amount}</strong> gift card from Mehandi Tales By Divya!</p>
+            {message_html}
+            <div style="background:#f5efe6;padding:20px;border-radius:12px;margin:24px 0;text-align:center;border:2px dashed #bf8522">
+              <p style="margin:0 0 12px 0;font-size:12px;color:#999">Your Gift Card Code</p>
+              <p style="margin:0;font-family:monospace;font-size:24px;font-weight:700;color:#3a1f10;letter-spacing:4px">{code}</p>
+            </div>
+            <p style="font-size:14px;margin:16px 0">You can use this gift card to shop for organic henna cones, bridal mehendi services, and more!</p>
+            <div style="text-align:center;margin:24px 0">
+              <a href="https://www.mehanditalesbydivya.com" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#BF8522,#D4A84A);color:#fff;text-decoration:none;border-radius:50px;font-weight:700">Shop Now →</a>
+            </div>
+            <p style="font-size:13px;color:#999;margin:16px 0 0">Questions? WhatsApp us at <a href="https://wa.me/917550084434" style="color:#bf8522;text-decoration:none">+91 75500 84434</a></p>
+          </div>
+          <div style="background:#f5efe6;padding:14px;text-align:center;font-size:12px;color:#999">
+            © 2025 Mehandi Tales By Divya · Chennai
+          </div>
+        </div>"""
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={
+                    "from": "Mehandi Tales By Divya <onboarding@resend.dev>",
+                    "to": [recipient_email],
+                    "bcc": [ADMIN_EMAIL],
+                    "subject": f"🎁 Your ₹{amount} Gift Card from Mehandi Tales By Divya",
+                    "html": html,
+                },
+                timeout=10,
+            )
+    except Exception as exc:
+        logger.warning("Gift card email failed: %s", exc)

@@ -128,6 +128,25 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS gift_cards (
+                code TEXT PRIMARY KEY,
+                buyer_user_id TEXT NOT NULL,
+                buyer_email TEXT DEFAULT '',
+                buyer_name TEXT DEFAULT '',
+                recipient_name TEXT DEFAULT '',
+                recipient_email TEXT DEFAULT '',
+                message TEXT DEFAULT '',
+                value INTEGER NOT NULL,
+                balance INTEGER NOT NULL,
+                payment_id TEXT UNIQUE,
+                redeemed_by TEXT DEFAULT '',
+                redeemed_at TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gift_cards_buyer ON gift_cards(buyer_user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gift_cards_redeemed ON gift_cards(redeemed_by)")
         for alter in [
             "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'confirmed'",
             "ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''",
@@ -570,3 +589,85 @@ def get_product_qa(product_name: str) -> list:
             (product_name,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ── Gift Cards ──────────────────────────────────────────────────────────────────
+
+def create_gift_card(buyer_user_id: str, value: int, recipient_name: str, recipient_email: str,
+                     message: str, payment_id: str, buyer_email: str = "", buyer_name: str = "") -> str:
+    """Create a gift card and return the unique code"""
+    import random
+    import string as _string
+    with _get_connection() as conn:
+        for _ in range(10):
+            code = "".join(random.choices(_string.ascii_uppercase + _string.digits, k=8))
+            code = f"GC{code}"
+            if not conn.execute("SELECT 1 FROM gift_cards WHERE code=?", (code,)).fetchone():
+                break
+        conn.execute(
+            """INSERT INTO gift_cards (code, buyer_user_id, buyer_email, buyer_name,
+                                       recipient_name, recipient_email, message,
+                                       value, balance, payment_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (code, buyer_user_id, buyer_email, buyer_name, recipient_name, recipient_email,
+             message, value, value, payment_id, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return code
+
+
+def get_gift_cards_for_user(user_id: str, limit: int = 50) -> list:
+    """Get gift cards bought by a user"""
+    with _get_connection() as conn:
+        rows = conn.execute(
+            """SELECT code, recipient_name, recipient_email, value, balance, created_at
+               FROM gift_cards WHERE buyer_user_id=?
+               ORDER BY created_at DESC LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_all_gift_cards(limit: int = 500) -> list:
+    """Get all gift cards (for admin)"""
+    with _get_connection() as conn:
+        rows = conn.execute(
+            """SELECT code, buyer_name, buyer_email, recipient_name, recipient_email,
+                      value, balance, redeemed_by, redeemed_at, created_at
+               FROM gift_cards ORDER BY created_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_gift_card_by_code(code: str) -> dict:
+    """Get a gift card by its code"""
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM gift_cards WHERE code=?", (code.upper(),)
+        ).fetchone()
+        return dict(row) if row else {}
+
+
+def redeem_gift_card(code: str, user_id: str, amount: int = None) -> dict:
+    """Use/redeem a gift card for an order"""
+    with _get_connection() as conn:
+        card = conn.execute(
+            "SELECT * FROM gift_cards WHERE code=?", (code.upper(),)
+        ).fetchone()
+        if not card:
+            return {"success": False, "error": "Card not found"}
+        card_dict = dict(card)
+        if card_dict["balance"] <= 0:
+            return {"success": False, "error": "Card has no balance"}
+        if amount is None:
+            amount = card_dict["balance"]
+        else:
+            amount = min(amount, card_dict["balance"])
+        new_balance = card_dict["balance"] - amount
+        conn.execute(
+            "UPDATE gift_cards SET balance=?, redeemed_by=?, redeemed_at=? WHERE code=?",
+            (new_balance, user_id, datetime.now(timezone.utc).isoformat(), code.upper()),
+        )
+        conn.commit()
+        return {"success": True, "amount_redeemed": amount, "new_balance": new_balance}
