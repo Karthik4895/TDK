@@ -1240,7 +1240,9 @@ async function startPayment(){
     };
     new Razorpay(options).open();
   }catch(e){
-    toast('Payment unavailable. Use WhatsApp to order.');
+    const msg = e && e.message ? e.message : String(e);
+    toast('Payment error: ' + msg.slice(0, 80));
+    console.error('Payment error:', e);
   }
 }
 function closePaySuccess(){ document.getElementById('paySuccessModal').classList.remove('on'); }
