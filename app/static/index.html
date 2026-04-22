@@ -1325,6 +1325,7 @@ function openWA(url){
   }
 }
 function checkout(){
+  if(!window._currentUser){ openAuth(); toast('Please sign in to place an order 🌿'); return; }
   if(!cart.length) return;
   const lines=cart.map(i=>`• ${i.name} ×${i.qty} = ₹${(i.price*i.qty).toLocaleString('en-IN')}`).join('\n');
   const msg=`Hi! I'd like to order from *Mehandi Tales By Divya* 🌿\n\n${lines}\n\n*Total: ₹${total().toLocaleString('en-IN')}*\n\nKindly confirm my order. Thank you!`;
@@ -1398,6 +1399,7 @@ window._currentUser = null;
 let bookingService='', bookingPrice=0, selectedSlot='';
 
 function openBooking(name,price){
+  if(!window._currentUser){ openAuth(); toast('Please sign in to book an appointment 🌿'); return; }
   bookingService=name; bookingPrice=price; selectedSlot='';
   document.getElementById('bookSvcName').textContent=name+' — ₹'+price.toLocaleString('en-IN');
   document.getElementById('bookName').value='';
@@ -1426,6 +1428,7 @@ function confirmBooking(){
 
 /* ══════════ RAZORPAY PAYMENT ══════════ */
 async function startPayment(){
+  if(!window._currentUser){ openAuth(); toast('Please sign in to place an order 🌿'); return; }
   const amt=total();
   if(!amt) return;
   try{
