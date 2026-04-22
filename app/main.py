@@ -1,5 +1,7 @@
+import csv
 import hmac
 import hashlib
+import io
 import os
 import time
 import logging
@@ -8,19 +10,24 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from app.models import QueryRequest, QueryResponse, HealthResponse
 from app.graph import graph
 from app.memory import (
     init_db, save_conversation, get_conversations, clear_conversations,
     save_order, get_orders, get_all_orders, update_order_status,
+    get_order_by_id, cancel_order,
     validate_coupon, use_coupon, create_coupon, list_coupons,
     add_to_wishlist, remove_from_wishlist, get_wishlist,
     add_review, get_reviews,
     get_loyalty_points, add_loyalty_points, use_loyalty_points,
     get_or_create_referral_code, get_referral_stats,
     validate_referral_code, record_referral_use,
+    save_return_request, get_return_requests, get_all_returns, update_return_status,
+    get_analytics, get_customers,
+    get_site_config, set_site_config,
+    add_product_qa, answer_product_qa, get_product_qa,
 )
 from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL
 
@@ -211,6 +218,60 @@ async def fetch_orders(user_id: str, limit: int = 20):
     return get_orders(user_id.strip(), min(limit, 50))
 
 
+class CancelOrderRequest(BaseModel):
+    user_id: str
+
+
+@app.post("/orders/{order_id}/cancel", tags=["orders"])
+async def cancel_order_endpoint(order_id: int, req: CancelOrderRequest):
+    result = cancel_order(order_id, req.user_id.strip())
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Cannot cancel"))
+    return {"cancelled": True}
+
+
+# ── COD Order ─────────────────────────────────────────────────────────────────
+
+class CODOrderRequest(BaseModel):
+    user_id: str
+    user_email: str = ""
+    user_name: str = ""
+    items: list
+    total: int
+    address: str = ""
+    discount: int = 0
+    loyalty_used: int = 0
+    coupon_code: str = ""
+    referral_code: str = ""
+    referrer_user_id: str = ""
+
+
+@app.post("/cod-order", tags=["orders"])
+async def cod_order(req: CODOrderRequest):
+    if not req.user_id.strip():
+        raise HTTPException(status_code=422, detail="user_id required")
+    payment_id = f"COD-{int(time.time())}-{req.user_id[:6]}"
+    save_order(
+        req.user_id.strip(), req.items, req.total, payment_id,
+        address=req.address, discount=req.discount, coupon_code=req.coupon_code,
+        user_email=req.user_email, user_name=req.user_name,
+    )
+    earned = max(0, req.total // 10)
+    if earned:
+        add_loyalty_points(req.user_id.strip(), earned)
+    if req.loyalty_used:
+        use_loyalty_points(req.user_id.strip(), req.loyalty_used)
+    if req.coupon_code:
+        use_coupon(req.coupon_code)
+    if req.referral_code and req.user_id:
+        record_referral_use(req.referral_code, req.user_id.strip(), payment_id)
+        if req.referrer_user_id:
+            add_loyalty_points(req.referrer_user_id, 100)
+    if req.user_email:
+        await _send_order_email(req.user_email, req.user_name, req.items, req.total, payment_id, req.address)
+    return {"saved": True, "payment_id": payment_id, "loyalty_earned": earned}
+
+
 @app.put("/orders/{order_id}/status", tags=["orders"])
 async def set_order_status(order_id: int, req: dict):
     if req.get("admin_email") != ADMIN_EMAIL:
@@ -260,6 +321,102 @@ async def admin_create_coupon(req: CouponCreateRequest):
         raise HTTPException(status_code=422, detail="discount_type must be 'percent' or 'flat'")
     create_coupon(req.code, req.discount_type, req.discount_value, req.max_usage)
     return {"created": True}
+
+
+@app.get("/admin/analytics", tags=["admin"])
+async def admin_analytics(admin_email: str = ""):
+    _check_admin(admin_email)
+    return get_analytics()
+
+
+@app.get("/admin/customers", tags=["admin"])
+async def admin_customers(admin_email: str = ""):
+    _check_admin(admin_email)
+    return get_customers()
+
+
+@app.get("/admin/export/orders", tags=["admin"])
+async def admin_export_orders(admin_email: str = ""):
+    _check_admin(admin_email)
+    orders = get_all_orders(limit=5000)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "User ID", "Name", "Email", "Items", "Total", "Discount",
+                     "Coupon", "Payment ID", "Address", "Status", "Created At"])
+    for o in orders:
+        items_str = "; ".join(f"{i['name']} x{i['qty']} @₹{i['price']}" for i in o.get("items", []))
+        writer.writerow([
+            o.get("id"), o.get("user_id"), o.get("user_name"), o.get("user_email"),
+            items_str, o.get("total"), o.get("discount"), o.get("coupon_code"),
+            o.get("payment_id"), o.get("address"), o.get("status"), o.get("created_at"),
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=orders.csv"},
+    )
+
+
+@app.get("/admin/returns", tags=["admin"])
+async def admin_returns(admin_email: str = ""):
+    _check_admin(admin_email)
+    return get_all_returns()
+
+
+class ReturnStatusRequest(BaseModel):
+    status: str
+    admin_email: str = ""
+
+
+@app.put("/admin/returns/{return_id}", tags=["admin"])
+async def admin_update_return(return_id: int, req: ReturnStatusRequest):
+    _check_admin(req.admin_email)
+    if req.status not in ("pending", "approved", "rejected", "completed"):
+        raise HTTPException(status_code=422, detail="Invalid status")
+    update_return_status(return_id, req.status)
+    return {"updated": True}
+
+
+class SiteConfigRequest(BaseModel):
+    key: str
+    value: str
+    admin_email: str = ""
+
+
+@app.get("/admin/config", tags=["admin"])
+async def admin_get_config(key: str, admin_email: str = ""):
+    _check_admin(admin_email)
+    return {"key": key, "value": get_site_config(key)}
+
+
+@app.post("/admin/config", tags=["admin"])
+async def admin_set_config(req: SiteConfigRequest):
+    _check_admin(req.admin_email)
+    set_site_config(req.key, req.value)
+    return {"saved": True}
+
+
+# ── Returns ────────────────────────────────────────────────────────────────────
+
+class ReturnRequest(BaseModel):
+    user_id: str
+    order_id: int
+    item_name: str
+    reason: str
+
+
+@app.post("/returns", tags=["returns"])
+async def submit_return(req: ReturnRequest):
+    if not req.user_id.strip() or not req.reason.strip():
+        raise HTTPException(status_code=422, detail="Missing required fields")
+    return_id = save_return_request(req.user_id.strip(), req.order_id, req.item_name, req.reason)
+    return {"submitted": True, "return_id": return_id}
+
+
+@app.get("/returns/{user_id}", tags=["returns"])
+async def fetch_returns(user_id: str):
+    return get_return_requests(user_id.strip())
 
 
 # ── Coupons ────────────────────────────────────────────────────────────────────

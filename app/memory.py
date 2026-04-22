@@ -84,6 +84,35 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS return_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                order_id INTEGER NOT NULL,
+                item_name TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS site_config (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS product_qa (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_name TEXT NOT NULL,
+                question TEXT NOT NULL,
+                asked_by TEXT NOT NULL,
+                answer TEXT DEFAULT '',
+                answered_at TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS referral_codes (
                 code TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL UNIQUE,
@@ -385,3 +414,159 @@ def record_referral_use(code: str, new_user_id: str, payment_id: str = ""):
             conn.commit()
         except Exception:
             pass
+
+
+def get_order_by_id(order_id: int) -> dict:
+    with _get_connection() as conn:
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            return {}
+        d = dict(row)
+        d["items"] = json.loads(d.get("items", "[]"))
+        return d
+
+
+def cancel_order(order_id: int, user_id: str) -> dict:
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM orders WHERE id=? AND user_id=?", (order_id, user_id)
+        ).fetchone()
+        if not row:
+            return {"ok": False, "error": "not_found"}
+        if dict(row)["status"] not in ("confirmed",):
+            return {"ok": False, "error": "not_cancellable"}
+        conn.execute(
+            "UPDATE orders SET status='cancelled' WHERE id=?", (order_id,)
+        )
+        conn.commit()
+        return {"ok": True}
+
+
+def save_return_request(user_id: str, order_id: int, item_name: str, reason: str) -> int:
+    with _get_connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO return_requests (user_id, order_id, item_name, reason, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, order_id, item_name, reason, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_return_requests(user_id: str) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM return_requests WHERE user_id=? ORDER BY created_at DESC", (user_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_all_returns(limit: int = 200) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM return_requests ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def update_return_status(return_id: int, status: str):
+    with _get_connection() as conn:
+        conn.execute("UPDATE return_requests SET status=? WHERE id=?", (status, return_id))
+        conn.commit()
+
+
+def get_analytics() -> dict:
+    with _get_connection() as conn:
+        total_orders = conn.execute("SELECT COUNT(*) AS c FROM orders").fetchone()["c"]
+        total_revenue = conn.execute(
+            "SELECT COALESCE(SUM(total),0) AS s FROM orders WHERE status != 'cancelled'"
+        ).fetchone()["s"]
+        total_customers = conn.execute(
+            "SELECT COUNT(DISTINCT user_id) AS c FROM orders"
+        ).fetchone()["c"]
+        # last 30 days daily revenue
+        daily = conn.execute(
+            """SELECT substr(created_at,1,10) AS day, SUM(total) AS rev
+               FROM orders WHERE status != 'cancelled'
+               AND created_at >= date('now','-30 days')
+               GROUP BY day ORDER BY day"""
+        ).fetchall()
+        # top products by quantity
+        rows = conn.execute(
+            "SELECT items FROM orders WHERE status != 'cancelled'"
+        ).fetchall()
+        product_counts: dict = {}
+        for r in rows:
+            try:
+                items = json.loads(r["items"])
+                for it in items:
+                    name = it.get("name", "")
+                    qty = it.get("qty", 1)
+                    product_counts[name] = product_counts.get(name, 0) + qty
+            except Exception:
+                pass
+        top_products = sorted(product_counts.items(), key=lambda x: -x[1])[:10]
+        return {
+            "total_orders": total_orders,
+            "total_revenue": total_revenue,
+            "total_customers": total_customers,
+            "daily_revenue": [dict(d) for d in daily],
+            "top_products": [{"name": k, "qty": v} for k, v in top_products],
+        }
+
+
+def get_customers(limit: int = 500) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            """SELECT user_id, user_email, user_name,
+                      COUNT(*) AS order_count, SUM(total) AS total_spent,
+                      MAX(created_at) AS last_order
+               FROM orders GROUP BY user_id ORDER BY last_order DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_site_config(key: str, default: str = "") -> str:
+    with _get_connection() as conn:
+        row = conn.execute("SELECT value FROM site_config WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else default
+
+
+def set_site_config(key: str, value: str):
+    with _get_connection() as conn:
+        conn.execute(
+            """INSERT INTO site_config (key, value, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",
+            (key, value, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+
+def add_product_qa(product_name: str, question: str, asked_by: str) -> int:
+    with _get_connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO product_qa (product_name, question, asked_by, created_at)
+               VALUES (?, ?, ?, ?)""",
+            (product_name, question, asked_by, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def answer_product_qa(qa_id: int, answer: str):
+    with _get_connection() as conn:
+        conn.execute(
+            "UPDATE product_qa SET answer=?, answered_at=? WHERE id=?",
+            (answer, datetime.now(timezone.utc).isoformat(), qa_id),
+        )
+        conn.commit()
+
+
+def get_product_qa(product_name: str) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM product_qa WHERE product_name=? ORDER BY created_at DESC",
+            (product_name,),
+        ).fetchall()
+        return [dict(r) for r in rows]
