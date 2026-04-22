@@ -1230,6 +1230,10 @@ async function startPayment(){
           if(vd.success){
             document.getElementById('paymentPid').textContent='Payment ID: '+response.razorpay_payment_id;
             document.getElementById('paySuccessModal').classList.add('on');
+            const lines=cart.map(i=>`• ${i.name} ×${i.qty} = ₹${(i.price*i.qty).toLocaleString('en-IN')}`).join('\n');
+            const tot=total();
+            const waMsg=`🎉 *New Order Received — Mehandi Tales*\n\n${lines}\n\n*Total Paid: ₹${tot.toLocaleString('en-IN')}*\n*Payment ID:* ${response.razorpay_payment_id}\n*Status:* ✅ Payment Confirmed`;
+            openWA(`https://wa.me/${WA}?text=${encodeURIComponent(waMsg)}`);
             cart=[]; save(); renderCart(); closeCart();
           } else { alert('Payment verification failed. Please contact us on WhatsApp.'); }
         }catch(e){ alert('Verification error. Please contact us on WhatsApp.'); }
