@@ -4,7 +4,68 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mehandi Tales By Divya — Organic Henna &amp; Bridal Services</title>
+  <!-- Firebase config — replace these values after creating your Firebase project -->
+  <script>
+    window.FB_API_KEY        = 'YOUR_API_KEY';
+    window.FB_AUTH_DOMAIN    = 'YOUR_PROJECT_ID.firebaseapp.com';
+    window.FB_PROJECT_ID     = 'YOUR_PROJECT_ID';
+    window.FB_STORAGE_BUCKET = 'YOUR_PROJECT_ID.appspot.com';
+    window.FB_MSG_SENDER_ID  = 'YOUR_SENDER_ID';
+    window.FB_APP_ID         = 'YOUR_APP_ID';
+  </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signOut,
+             createUserWithEmailAndPassword, signInWithEmailAndPassword,
+             GoogleAuthProvider, OAuthProvider, signInWithPopup }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey:            window.FB_API_KEY,
+      authDomain:        window.FB_AUTH_DOMAIN,
+      projectId:         window.FB_PROJECT_ID,
+      storageBucket:     window.FB_STORAGE_BUCKET,
+      messagingSenderId: window.FB_MSG_SENDER_ID,
+      appId:             window.FB_APP_ID,
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, user => {
+      window._currentUser = user;
+      if (user) {
+        document.getElementById('authBtn').style.display   = 'none';
+        document.getElementById('userPill').style.display  = 'flex';
+        document.getElementById('userAvatar').src =
+          user.photoURL || 'https://ui-avatars.com/api/?name=' +
+          encodeURIComponent(user.displayName || user.email) + '&background=3A1F10&color=D4A84A&size=64';
+        document.getElementById('userName').textContent =
+          (user.displayName || user.email).split(' ')[0];
+      } else {
+        document.getElementById('authBtn').style.display   = 'flex';
+        document.getElementById('userPill').style.display  = 'none';
+      }
+    });
+
+    window._fbSignOut = () => signOut(auth);
+
+    window._fbEmailSignIn = async (email, pwd) => {
+      return signInWithEmailAndPassword(auth, email, pwd);
+    };
+    window._fbEmailSignUp = async (email, pwd) => {
+      return createUserWithEmailAndPassword(auth, email, pwd);
+    };
+    window._fbGoogle = async () => {
+      return signInWithPopup(auth, new GoogleAuthProvider());
+    };
+    window._fbApple = async () => {
+      const p = new OAuthProvider('apple.com');
+      p.addScope('email'); p.addScope('name');
+      return signInWithPopup(auth, p);
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
@@ -66,6 +127,52 @@
     .cart-pill:hover { border-color:var(--gold); color:var(--gold); box-shadow:0 4px 14px rgba(191,133,34,.2); }
     #cartCount { font-size:11px; background:var(--gold); color:#fff; border-radius:50px; padding:2px 8px; font-weight:700; }
     #cartCount.hidden { display:none; }
+
+    /* ══════════════════ AUTH ══════════════════ */
+    .auth-btn {
+      display:flex; align-items:center; gap:6px; padding:7px 16px; border-radius:50px;
+      border:2px solid var(--border); background:var(--white); cursor:pointer;
+      font-size:13px; font-weight:600; color:var(--dark); transition:all .2s;
+      touch-action:manipulation;
+    }
+    .auth-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .user-pill {
+      display:none; align-items:center; gap:8px; cursor:pointer;
+      padding:4px 14px 4px 4px; border-radius:50px;
+      border:2px solid var(--border); background:var(--white);
+      transition:all .2s;
+    }
+    .user-pill:hover { border-color:var(--gold); }
+    .user-pill img { width:30px; height:30px; border-radius:50%; object-fit:cover; }
+    .user-pill span { font-size:13px; font-weight:600; color:var(--dark); }
+    /* Auth modal */
+    .auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:22px; }
+    .auth-tab {
+      flex:1; padding:12px; text-align:center; cursor:pointer; font-weight:600;
+      font-size:13px; color:var(--muted); border-bottom:2px solid transparent;
+      margin-bottom:-1px; transition:all .2s; touch-action:manipulation; background:none; border-left:none; border-right:none; border-top:none;
+    }
+    .auth-tab.active { color:var(--dark); border-bottom-color:var(--gold); }
+    .auth-divider { display:flex; align-items:center; gap:12px; margin:18px 0; }
+    .auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+    .auth-divider span { font-size:11px; color:var(--muted); font-weight:500; }
+    .social-btn {
+      width:100%; padding:11px; border-radius:12px; border:1.5px solid var(--border);
+      background:var(--white); font-size:14px; font-weight:600; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      transition:all .2s; margin-bottom:10px; touch-action:manipulation; color:var(--dark);
+    }
+    .social-btn:hover { border-color:var(--gold); background:var(--bg2); }
+    .social-btn.apple { background:#000; color:#fff; border-color:#000; }
+    .social-btn.apple:hover { background:#222; }
+    .auth-err { font-size:12px; color:#c0392b; text-align:center; margin-top:8px; min-height:18px; }
+    .auth-submit {
+      width:100%; padding:13px; border-radius:50px; margin-top:16px;
+      background:linear-gradient(135deg,#3A1F10,#6B3820); border:none;
+      color:var(--gold-l); font-size:15px; font-weight:700; cursor:pointer;
+      transition:all .22s; touch-action:manipulation;
+    }
+    .auth-submit:hover { transform:translateY(-1px); box-shadow:0 4px 18px rgba(58,31,16,.4); }
 
     /* ══════════════════ HERO ══════════════════ */
     #hero {
@@ -674,6 +781,11 @@
     <li><a href="#why">About</a></li>
   </ul>
   <div class="nav-right">
+    <button id="authBtn" class="auth-btn" onclick="openAuth()">👤 Sign In</button>
+    <div id="userPill" class="user-pill" onclick="openAuth()">
+      <img id="userAvatar" src="" alt="avatar" />
+      <span id="userName"></span>
+    </div>
     <button class="cart-pill" onclick="toggleCart()">
       🛒 Cart <span id="cartCount" class="hidden">0</span>
     </button>
@@ -988,6 +1100,51 @@
   <p class="ft-copy">© 2025 Mehandi Tales By Divya · All rights reserved · Made with 🌿 in Chennai</p>
 </footer>
 
+<!-- ══════════ AUTH MODAL ══════════ -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div><h3 id="authModalTitle">👤 Sign In</h3></div>
+      <button class="modal-close" onclick="closeAuth()">✕</button>
+    </div>
+    <div class="modal-body" id="authBody">
+      <!-- Sign out view -->
+      <div id="authSignedIn" style="display:none;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">👋</div>
+        <div id="authGreet" style="font-family:'Cinzel',serif;font-size:17px;color:var(--dark);margin-bottom:6px"></div>
+        <div id="authEmail" style="font-size:13px;color:var(--muted);margin-bottom:24px"></div>
+        <button class="auth-submit" style="background:#8B1A1A" onclick="doSignOut()">Sign Out</button>
+      </div>
+      <!-- Sign in / up view -->
+      <div id="authSignedOut">
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tabSignIn" onclick="switchTab('in')">Sign In</button>
+          <button class="auth-tab" id="tabSignUp" onclick="switchTab('up')">Sign Up</button>
+        </div>
+        <div class="mf-group">
+          <label class="mf-label">Email</label>
+          <input class="mf-input" id="authEmailInput" type="email" placeholder="you@email.com" />
+        </div>
+        <div class="mf-group">
+          <label class="mf-label">Password</label>
+          <input class="mf-input" id="authPwdInput" type="password" placeholder="Min. 6 characters" />
+        </div>
+        <div class="auth-err" id="authErr"></div>
+        <button class="auth-submit" id="authSubmitBtn" onclick="doEmailAuth()">Sign In</button>
+        <div class="auth-divider"><span>or continue with</span></div>
+        <button class="social-btn" onclick="doGoogle()">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Continue with Google
+        </button>
+        <button class="social-btn apple" onclick="doApple()">
+          <svg width="18" height="18" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-157.9-112.3C87.3 768.3 37.3 683.2 37.3 601.6c0-120.6 79.1-180.5 140.8-190.5 52.8-8.7 104.6-5.5 156.1 12.4 17.9 6.1 35.8 12.4 53.3 12.4 17.5 0 35.4-6.3 53.3-12.4 51.5-17.9 103.3-21.1 156.1-12.4 61.7 10 140.8 69.9 140.8 190.5 0 128.3-102.4 186-108.2 190.5zM554.1 88.4c13.5-20.1 23.7-48.4 23.7-76.7 0-3.8-.3-7.7-.7-11.5-22.4 .8-49 14.3-65.4 35.2-14.7 18.7-27.3 48.2-27.3 76.5 0 4.2.7 8.3 1 9.7 1.7.3 4.3.7 6.9.7 20.1 0 45.8-12.7 61.8-33.9z"/></svg>
+          Continue with Apple
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ BOOKING MODAL ══════════ -->
 <div class="modal-overlay" id="bookModal">
   <div class="modal-box">
@@ -1177,6 +1334,65 @@ function book(name,price){
   const msg=`Hi! I'd like to book *${name}* (₹${price.toLocaleString('en-IN')}) from *Mehandi Tales By Divya* 🌿\n\nCould you please help me schedule an appointment? Thank you!`;
   openWA(`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`);
 }
+
+/* ══════════ AUTH ══════════ */
+function openAuth(){
+  const user = window._currentUser;
+  document.getElementById('authSignedIn').style.display  = user ? 'block' : 'none';
+  document.getElementById('authSignedOut').style.display = user ? 'none'  : 'block';
+  if(user){
+    document.getElementById('authModalTitle').textContent = '👤 My Account';
+    document.getElementById('authGreet').textContent = 'Hello, ' + (user.displayName||user.email.split('@')[0]) + '!';
+    document.getElementById('authEmail').textContent = user.email;
+  } else {
+    document.getElementById('authModalTitle').textContent = '👤 Sign In';
+  }
+  document.getElementById('authModal').classList.add('on');
+}
+function closeAuth(){ document.getElementById('authModal').classList.remove('on'); }
+function switchTab(tab){
+  const isIn = tab==='in';
+  document.getElementById('tabSignIn').classList.toggle('active', isIn);
+  document.getElementById('tabSignUp').classList.toggle('active', !isIn);
+  document.getElementById('authSubmitBtn').textContent = isIn ? 'Sign In' : 'Create Account';
+  document.getElementById('authErr').textContent = '';
+}
+function setAuthErr(msg){ document.getElementById('authErr').textContent = msg; }
+async function doEmailAuth(){
+  const email = document.getElementById('authEmailInput').value.trim();
+  const pwd   = document.getElementById('authPwdInput').value;
+  const isSignUp = document.getElementById('tabSignUp').classList.contains('active');
+  if(!email||!pwd){ setAuthErr('Please enter email and password'); return; }
+  try{
+    if(isSignUp) await window._fbEmailSignUp(email,pwd);
+    else         await window._fbEmailSignIn(email,pwd);
+    closeAuth(); toast('Welcome! You are signed in 🌿');
+  }catch(e){
+    const msg = e.code==='auth/user-not-found'||e.code==='auth/wrong-password' ? 'Incorrect email or password'
+              : e.code==='auth/email-already-in-use' ? 'Account already exists — try Sign In'
+              : e.code==='auth/weak-password' ? 'Password must be at least 6 characters'
+              : e.code==='auth/invalid-email' ? 'Invalid email address'
+              : 'Error: '+e.message;
+    setAuthErr(msg);
+  }
+}
+async function doGoogle(){
+  try{
+    await window._fbGoogle();
+    closeAuth(); toast('Signed in with Google 🌿');
+  }catch(e){ setAuthErr('Google sign-in failed. Try again.'); }
+}
+async function doApple(){
+  try{
+    await window._fbApple();
+    closeAuth(); toast('Signed in with Apple 🌿');
+  }catch(e){ setAuthErr('Apple sign-in failed. Ensure Apple is enabled in Firebase.'); }
+}
+async function doSignOut(){
+  await window._fbSignOut();
+  closeAuth(); toast('Signed out successfully');
+}
+window._currentUser = null;
 
 /* ══════════ BOOKING CALENDAR ══════════ */
 let bookingService='', bookingPrice=0, selectedSlot='';
