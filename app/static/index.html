@@ -435,13 +435,14 @@
     .ft-copy { font-size:12px; color:rgba(255,255,255,.3); }
 
     /* ══════════════════ CHAT WIDGET ══════════════════ */
-    #chatWrap { position:fixed; bottom:24px; right:24px; z-index:300; display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+    #chatWrap { position:fixed; bottom:24px; right:24px; z-index:300; display:flex; flex-direction:column; align-items:flex-end; gap:10px; pointer-events:none; }
 
     #chatPanel {
       width:370px; max-width:calc(100vw - 32px); height:520px;
       background:var(--bg); border-radius:20px; border:1px solid var(--border);
       box-shadow:0 12px 48px rgba(0,0,0,.22); display:flex; flex-direction:column;
       overflow:hidden; transition:opacity .25s,transform .25s; transform-origin:bottom right;
+      pointer-events:auto;
     }
     #chatPanel.hide { opacity:0; pointer-events:none; transform:scale(.86); }
 
@@ -494,7 +495,7 @@
       border:3px solid var(--gold-l);
       box-shadow:0 4px 24px rgba(58,31,16,.35), 0 0 0 6px rgba(191,133,34,.1);
       cursor:pointer; font-size:24px; display:flex; align-items:center; justify-content:center;
-      transition:all .28s; color:#fff; position:relative;
+      transition:all .28s; color:#fff; position:relative; pointer-events:auto;
     }
     #chatToggle:hover { transform:scale(1.1) rotate(10deg); box-shadow:0 8px 30px rgba(58,31,16,.4); }
     #chatDot { position:absolute; top:-3px; right:-3px; width:16px; height:16px; border-radius:50%; background:var(--gold); border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:8px; color:#fff; font-weight:700; animation:pulse 2s infinite; }
