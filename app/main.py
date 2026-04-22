@@ -8,11 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import razorpay
 from app.models import QueryRequest, QueryResponse, HealthResponse
 from app.graph import graph
 from app.memory import init_db, save_conversation, get_conversations, clear_conversations
 from app.config import APP_ENV, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+
+try:
+    import razorpay as _razorpay
+except ImportError:
+    _razorpay = None
 
 logger = logging.getLogger("tdk.main")
 
@@ -107,8 +111,10 @@ class VerifyRequest(BaseModel):
 async def create_order(req: OrderRequest):
     if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
         raise HTTPException(status_code=503, detail="Payment not configured")
+    if _razorpay is None:
+        raise HTTPException(status_code=503, detail="Razorpay package not available")
     try:
-        client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        client = _razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         order = client.order.create({
             "amount": req.amount,
             "currency": req.currency,
