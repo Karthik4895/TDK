@@ -122,8 +122,8 @@ async def payment_status():
 
 @app.post("/create-order", tags=["payment"])
 async def create_order(req: OrderRequest):
-    key_id = os.getenv("RAZORPAY_KEY_ID", "")
-    secret  = os.getenv("RAZORPAY_KEY_SECRET", "")
+    key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_SgUrUlQPV7Opp9")
+    secret  = os.getenv("RAZORPAY_KEY_SECRET", "1rmPos9iVNbim54tsTwcU2Y4")
     if not key_id or not secret:
         raise HTTPException(status_code=503, detail="Payment not configured")
     if _razorpay is None:
@@ -144,7 +144,7 @@ async def create_order(req: OrderRequest):
 
 @app.post("/verify-payment", tags=["payment"])
 async def verify_payment(req: VerifyRequest):
-    secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    secret = os.getenv("RAZORPAY_KEY_SECRET", "1rmPos9iVNbim54tsTwcU2Y4")
     if not secret:
         raise HTTPException(status_code=503, detail="Payment not configured")
     body = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
