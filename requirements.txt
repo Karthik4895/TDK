@@ -11,3 +11,4 @@ pydantic
 python-dotenv
 aiofiles
 razorpay
+httpx

@@ -13,6 +13,8 @@ DB_PATH = os.getenv("DB_PATH", "tdk.db")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 RAZORPAY_KEY_ID     = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+RESEND_API_KEY      = os.getenv("RESEND_API_KEY", "")
+ADMIN_EMAIL         = os.getenv("ADMIN_EMAIL", "mehanditalesbydivya@gmail.com")
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),

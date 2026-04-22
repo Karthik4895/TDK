@@ -45,6 +45,63 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS coupons (
+                code TEXT PRIMARY KEY,
+                discount_type TEXT NOT NULL,
+                discount_value INTEGER NOT NULL,
+                max_usage INTEGER DEFAULT 0,
+                usage_count INTEGER DEFAULT 0,
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS wishlist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                product_price INTEGER NOT NULL,
+                UNIQUE(user_id, product_name)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                review_text TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS loyalty_points (
+                user_id TEXT PRIMARY KEY,
+                points INTEGER DEFAULT 0,
+                updated_at TEXT
+            )
+        """)
+        for alter in [
+            "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'confirmed'",
+            "ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''",
+            "ALTER TABLE orders ADD COLUMN discount INTEGER DEFAULT 0",
+            "ALTER TABLE orders ADD COLUMN coupon_code TEXT DEFAULT ''",
+        ]:
+            try:
+                conn.execute(alter)
+            except Exception:
+                pass
+        # Seed default coupons
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute("""
+            INSERT OR IGNORE INTO coupons (code, discount_type, discount_value, max_usage, created_at)
+            VALUES
+            ('WELCOME10', 'percent', 10, 0, ?),
+            ('MEHANDI50', 'flat', 50, 100, ?),
+            ('BRIDAL15', 'percent', 15, 50, ?)
+        """, (now, now, now))
         conn.commit()
     logger.info("Database initialized")
 
@@ -96,12 +153,14 @@ def clear_conversations(user_id: str):
         conn.commit()
 
 
-def save_order(user_id: str, items: list, total: int, payment_id: str):
+def save_order(user_id: str, items: list, total: int, payment_id: str,
+               address: str = "", discount: int = 0, coupon_code: str = ""):
     with _get_connection() as conn:
         conn.execute(
-            """INSERT INTO orders (user_id, items, total, payment_id, created_at)
-               VALUES (?, ?, ?, ?, ?)""",
-            (user_id, json.dumps(items), total, payment_id, datetime.now(timezone.utc).isoformat()),
+            """INSERT INTO orders (user_id, items, total, payment_id, created_at, status, address, discount, coupon_code)
+               VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?, ?)""",
+            (user_id, json.dumps(items), total, payment_id,
+             datetime.now(timezone.utc).isoformat(), address, discount, coupon_code),
         )
         conn.commit()
 
@@ -109,7 +168,7 @@ def save_order(user_id: str, items: list, total: int, payment_id: str):
 def get_orders(user_id: str, limit: int = 20) -> list:
     with _get_connection() as conn:
         rows = conn.execute(
-            """SELECT id, items, total, payment_id, created_at
+            """SELECT id, items, total, payment_id, created_at, status, address, discount
                FROM orders WHERE user_id = ?
                ORDER BY created_at DESC LIMIT ?""",
             (user_id, limit),
@@ -120,3 +179,124 @@ def get_orders(user_id: str, limit: int = 20) -> list:
             d["items"] = json.loads(d["items"])
             result.append(d)
         return result
+
+
+def get_all_orders(limit: int = 200) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["items"] = json.loads(d["items"])
+            result.append(d)
+        return result
+
+
+def update_order_status(order_id: int, status: str):
+    with _get_connection() as conn:
+        conn.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
+        conn.commit()
+
+
+def validate_coupon(code: str):
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM coupons WHERE code=? AND active=1", (code.upper(),)
+        ).fetchone()
+        if not row:
+            return None
+        r = dict(row)
+        if r["max_usage"] > 0 and r["usage_count"] >= r["max_usage"]:
+            return None
+        return r
+
+
+def use_coupon(code: str):
+    with _get_connection() as conn:
+        conn.execute("UPDATE coupons SET usage_count=usage_count+1 WHERE code=?", (code.upper(),))
+        conn.commit()
+
+
+def create_coupon(code: str, discount_type: str, discount_value: int, max_usage: int):
+    with _get_connection() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO coupons (code, discount_type, discount_value, max_usage, usage_count, active, created_at)
+               VALUES (?, ?, ?, ?, 0, 1, ?)""",
+            (code.upper(), discount_type, discount_value, max_usage, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+
+def list_coupons() -> list:
+    with _get_connection() as conn:
+        rows = conn.execute("SELECT * FROM coupons ORDER BY created_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+
+def add_to_wishlist(user_id: str, product_name: str, product_price: int):
+    with _get_connection() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO wishlist (user_id, product_name, product_price) VALUES (?, ?, ?)",
+            (user_id, product_name, product_price),
+        )
+        conn.commit()
+
+
+def remove_from_wishlist(user_id: str, product_name: str):
+    with _get_connection() as conn:
+        conn.execute("DELETE FROM wishlist WHERE user_id=? AND product_name=?", (user_id, product_name))
+        conn.commit()
+
+
+def get_wishlist(user_id: str) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT product_name, product_price FROM wishlist WHERE user_id=? ORDER BY id DESC", (user_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def add_review(user_id: str, user_name: str, product_name: str, rating: int, review_text: str):
+    with _get_connection() as conn:
+        conn.execute(
+            """INSERT INTO reviews (user_id, user_name, product_name, rating, review_text, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, user_name, product_name, rating, review_text, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+
+def get_reviews(product_name: str) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT user_name, rating, review_text, created_at FROM reviews WHERE product_name=? ORDER BY created_at DESC",
+            (product_name,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_loyalty_points(user_id: str) -> int:
+    with _get_connection() as conn:
+        row = conn.execute("SELECT points FROM loyalty_points WHERE user_id=?", (user_id,)).fetchone()
+        return row["points"] if row else 0
+
+
+def add_loyalty_points(user_id: str, points: int):
+    with _get_connection() as conn:
+        conn.execute(
+            """INSERT INTO loyalty_points (user_id, points, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET points=points+excluded.points, updated_at=excluded.updated_at""",
+            (user_id, points, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+
+def use_loyalty_points(user_id: str, points: int):
+    with _get_connection() as conn:
+        conn.execute(
+            "UPDATE loyalty_points SET points=MAX(0,points-?), updated_at=? WHERE user_id=?",
+            (points, datetime.now(timezone.utc).isoformat(), user_id),
+        )
+        conn.commit()

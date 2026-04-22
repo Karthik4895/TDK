@@ -43,9 +43,14 @@
           encodeURIComponent(user.displayName || user.email) + '&background=3A1F10&color=D4A84A&size=64';
         document.getElementById('userName').textContent =
           (user.displayName || user.email).split(' ')[0];
+        const isAdmin = user.email === 'mehanditalesbydivya@gmail.com';
+        document.getElementById('adminBtn').style.display = isAdmin ? 'inline-block' : 'none';
+        loadLoyaltyPoints(user.uid);
       } else {
         document.getElementById('authBtn').style.display   = 'flex';
         document.getElementById('userPill').style.display  = 'none';
+        document.getElementById('adminBtn').style.display  = 'none';
+        loyaltyBalance = 0;
       }
     });
 
@@ -769,6 +774,87 @@
       .hero-logo-wrap { width:180px; height:180px; }
       .gal-grid { gap:10px; }
     }
+    /* ══ SEARCH ══ */
+    .prod-search-wrap{max-width:380px;margin:0 auto 28px;position:relative}
+    .prod-search-wrap input{width:100%;padding:11px 18px 11px 44px;border:2px solid var(--border);border-radius:50px;font-size:14px;background:var(--white);color:var(--dark);outline:none;transition:border-color .2s;box-sizing:border-box}
+    .prod-search-wrap input:focus{border-color:var(--gold)}
+    .prod-search-icon{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#bbb;pointer-events:none;font-size:16px}
+    /* ══ WISHLIST ══ */
+    .wl-btn{position:absolute;top:12px;left:12px;z-index:4;background:rgba(255,255,255,.88);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:transform .2s,color .2s;line-height:1}
+    .wl-btn:hover{transform:scale(1.2)}
+    .wl-btn.active{color:#e53e3e}
+    .wl-count-badge{position:absolute;top:-6px;right:-6px;background:#e53e3e;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .wl-modal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;max-height:55vh;overflow-y:auto}
+    .wl-card{background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+    .wl-card-name{font-size:13px;font-weight:600;margin-bottom:5px;color:var(--dark)}
+    .wl-card-price{font-size:14px;color:var(--gold);font-weight:700;margin-bottom:8px}
+    .wl-card-btns{display:flex;gap:6px;justify-content:center}
+    .wl-card-btn{font-size:11px;background:var(--gold);color:var(--white);border:none;border-radius:6px;padding:5px 10px;cursor:pointer}
+    .wl-card-rm{font-size:11px;background:#eee;color:#666;border:none;border-radius:6px;padding:5px 8px;cursor:pointer}
+    .wl-empty{text-align:center;padding:30px;color:#aaa;font-size:14px}
+    /* ══ STARS ══ */
+    .prod-stars{display:flex;align-items:center;gap:5px;margin:4px 0 8px}
+    .stars-disp{color:#f0c040;font-size:13px;letter-spacing:.5px}
+    .stars-cnt{font-size:11px;color:#aaa;cursor:pointer;text-decoration:underline}
+    /* ══ REVIEWS MODAL ══ */
+    .rev-list{max-height:220px;overflow-y:auto;margin-bottom:14px}
+    .rev-item{border-bottom:1px solid var(--border);padding:10px 0}
+    .rev-item:last-child{border:none}
+    .rev-head{display:flex;justify-content:space-between;margin-bottom:3px}
+    .rev-name{font-size:13px;font-weight:600;color:var(--dark)}
+    .rev-date{font-size:11px;color:#bbb}
+    .rev-stars{color:#f0c040;font-size:12px}
+    .rev-text{font-size:13px;color:#555;margin-top:2px}
+    .rev-form{border-top:1px solid var(--border);padding-top:14px}
+    .star-pick{display:flex;gap:4px;margin:8px 0;font-size:26px;cursor:pointer}
+    .star-pick span{opacity:.25;transition:opacity .12s;user-select:none}
+    .star-pick span.lit{opacity:1}
+    .rev-textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;resize:vertical;min-height:70px;box-sizing:border-box;font-family:inherit}
+    /* ══ COUPON & LOYALTY ══ */
+    .coupon-row{display:flex;gap:8px;margin:10px 0 6px}
+    .coupon-inp{flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px}
+    .coupon-inp:focus{outline:none;border-color:var(--gold)}
+    .coupon-apply{padding:9px 14px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+    .coupon-tag{display:none;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:12px;color:#15803d;margin-bottom:6px}
+    .coupon-tag button{background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:0;line-height:1}
+    .loyalty-row{display:none;align-items:center;justify-content:space-between;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--dark)}
+    .loy-toggle{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0}
+    .loy-toggle input{opacity:0;width:0;height:0}
+    .loy-slider{position:absolute;inset:0;background:#ddd;border-radius:20px;transition:.25s;cursor:pointer}
+    .loy-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.25s}
+    input:checked+.loy-slider{background:var(--gold)}
+    input:checked+.loy-slider::before{transform:translateX(16px)}
+    .disc-line{display:flex;justify-content:space-between;font-size:12px;color:#16a34a;margin:2px 0}
+    .cart-tot-sep{border:none;border-top:1px solid var(--border);margin:8px 0}
+    .cart-tot-final{display:flex;justify-content:space-between;align-items:center;margin:4px 0 12px}
+    .ct-final-lbl{font-size:15px;font-weight:700;color:var(--dark)}
+    .ct-final-amt{font-size:20px;font-weight:800;color:var(--gold)}
+    /* ══ ADDRESS FORM ══ */
+    .addr-grid{display:grid;gap:12px}
+    .addr-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .addr-inp{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit}
+    .addr-inp:focus{outline:none;border-color:var(--gold)}
+    /* ══ ADMIN DASHBOARD ══ */
+    .admin-box{max-width:860px!important;width:95vw!important}
+    .admin-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+    .admin-stat{background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+    .admin-stat-val{font-size:22px;font-weight:800;color:var(--gold)}
+    .admin-stat-lbl{font-size:11px;color:#999;margin-top:2px}
+    .admin-order-row{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--cream)}
+    .admin-order-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px}
+    .admin-order-items{font-size:13px;color:#555;margin-bottom:4px}
+    .admin-order-addr{font-size:12px;color:#888;margin-top:4px}
+    .admin-panel{display:none}
+    .admin-panel.active{display:block}
+    .status-select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:#fff;margin-left:auto}
+    .admin-coupon-row{display:flex;justify-content:space-between;align-items:center;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px}
+    .admin-nav-btn{background:var(--dark);color:var(--gold);border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:none}
+    .wl-nav-btn{position:relative;background:var(--white);color:var(--dark);border:1.5px solid var(--border);padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;transition:border-color .2s}
+    .wl-nav-btn:hover{border-color:var(--gold)}
+    .sb-confirmed{background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+    .sb-packed{background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+    .sb-shipped{background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+    .sb-delivered{background:#d1fae5;color:#059669;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
   </style>
 </head>
 <body>
@@ -800,6 +886,10 @@
       <img id="userAvatar" src="" alt="avatar" />
       <span id="userName"></span>
     </div>
+    <button class="wl-nav-btn" onclick="openWishlist()" title="Wishlist">
+      ♡ <span id="wlCount" style="display:none;background:#e53e3e;color:#fff;border-radius:50%;padding:0 5px;font-size:11px;font-weight:700"></span>
+    </button>
+    <button id="adminBtn" class="admin-nav-btn" onclick="openAdmin()">⚙ Admin</button>
     <button class="cart-pill" onclick="toggleCart()">
       🛒 Cart <span id="cartCount" class="hidden">0</span>
     </button>
@@ -859,15 +949,21 @@
     <div class="sec-orn"><span>🌿</span></div>
     <p class="sec-p">Handcrafted with 100% organic henna for vibrant, long-lasting designs</p>
   </div>
+  <div class="prod-search-wrap">
+    <span class="prod-search-icon">🔍</span>
+    <input type="text" placeholder="Search products…" oninput="searchProducts(this.value)" />
+  </div>
   <div class="prod-grid">
 
     <div class="prod-card">
+      <button class="wl-btn" id="wl-cones" onclick="toggleWishlist('cones','Organic Henna Cones',60)">♡</button>
       <span class="prod-badge b-best">Bestseller</span>
       <div class="prod-vis-img">
         <img src="/static/Organic%20Henna%20Cones.png" alt="Organic Henna Cones" />
       </div>
       <div class="prod-body">
         <div class="prod-name">Organic Henna Cones</div>
+        <div class="prod-stars" id="stars-cones"><span class="stars-disp">☆☆☆☆☆</span><span class="stars-cnt" onclick="openReviews('Organic Henna Cones')">(0)</span></div>
         <div class="prod-desc">Pack of 5 cones · 20g each. Pure organic henna for beautiful, long-lasting designs at home.</div>
         <div class="prod-price-row">
           <span class="prod-price">₹60</span>
@@ -878,10 +974,12 @@
     </div>
 
     <div class="prod-card">
+      <button class="wl-btn" id="wl-combo" onclick="toggleWishlist('combo','Combo Pack — Cones + Oil',299)">♡</button>
       <span class="prod-badge b-pop">Popular</span>
       <div class="prod-vis v-amber"><span class="prod-em">🫙</span></div>
       <div class="prod-body">
         <div class="prod-name">Combo Pack</div>
+        <div class="prod-stars" id="stars-combo"><span class="stars-disp">☆☆☆☆☆</span><span class="stars-cnt" onclick="openReviews('Combo Pack — Cones + Oil')">(0)</span></div>
         <div class="prod-desc">Organic henna cones + After care oil. Everything you need for stunning, rich mehendi color.</div>
         <div class="prod-price-row">
           <span class="prod-price">₹299</span>
@@ -892,12 +990,14 @@
     </div>
 
     <div class="prod-card">
+      <button class="wl-btn" id="wl-bridal-kit" onclick="toggleWishlist('bridal-kit','Bridal Kit',499)">♡</button>
       <span class="prod-badge b-prem">Premium</span>
       <div class="prod-vis-img">
         <img src="/static/Bridal%20Kit.jpg" alt="Bridal Kit" />
       </div>
       <div class="prod-body">
         <div class="prod-name">Bridal Kit</div>
+        <div class="prod-stars" id="stars-bridal-kit"><span class="stars-disp">☆☆☆☆☆</span><span class="stars-cnt" onclick="openReviews('Bridal Kit')">(0)</span></div>
         <div class="prod-desc">The ultimate bridal kit — premium cones, aftercare oil &amp; all application accessories included.</div>
         <div class="prod-price-row">
           <span class="prod-price">₹499</span>
@@ -1214,6 +1314,109 @@
   </div>
 </div>
 
+<!-- ══════════ WISHLIST MODAL ══════════ -->
+<div class="modal-overlay" id="wishlistModal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-head">
+      <div><h3>♡ My Wishlist</h3></div>
+      <button class="modal-close" onclick="closeWishlist()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="wishlistItems"><div class="wl-empty">Your wishlist is empty 🌿</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ADDRESS MODAL ══════════ -->
+<div class="modal-overlay" id="addrModal">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-head">
+      <div><h3>📍 Delivery Address</h3></div>
+      <button class="modal-close" onclick="closeAddress()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="addr-grid">
+        <input class="addr-inp" id="addrName" placeholder="Full Name *" />
+        <input class="addr-inp" id="addrPhone" placeholder="Phone Number *" type="tel" />
+        <input class="addr-inp" id="addrLine1" placeholder="Address Line 1 *" />
+        <div class="addr-row">
+          <input class="addr-inp" id="addrCity" placeholder="City *" />
+          <input class="addr-inp" id="addrPincode" placeholder="Pincode *" />
+        </div>
+      </div>
+      <button class="confirm-btn" style="margin-top:18px;width:100%" onclick="confirmAddress()">Continue to Payment →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ REVIEWS MODAL ══════════ -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-head">
+      <div><h3>Reviews — <span id="reviewProductName"></span></h3></div>
+      <button class="modal-close" onclick="closeReviews()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="rev-list" id="reviewList"></div>
+      <div class="rev-form" id="reviewFormWrap">
+        <p style="font-size:13px;font-weight:600;margin:0 0 6px">Leave a Review</p>
+        <div class="star-pick" id="starPick">
+          <span onclick="pickStar(1)">★</span>
+          <span onclick="pickStar(2)">★</span>
+          <span onclick="pickStar(3)">★</span>
+          <span onclick="pickStar(4)">★</span>
+          <span onclick="pickStar(5)">★</span>
+        </div>
+        <textarea class="rev-textarea" id="reviewText" placeholder="Share your experience (optional)…"></textarea>
+        <button class="confirm-btn" style="margin-top:10px;width:100%" onclick="submitReview()">Submit Review</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ADMIN DASHBOARD ══════════ -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-box admin-box">
+    <div class="modal-head">
+      <div><h3>⚙ Admin Dashboard</h3></div>
+      <button class="modal-close" onclick="closeAdmin()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="admin-summary">
+        <div class="admin-stat"><div class="admin-stat-val" id="adminRevenue">₹0</div><div class="admin-stat-lbl">Total Revenue</div></div>
+        <div class="admin-stat"><div class="admin-stat-val" id="adminOrderCount">0</div><div class="admin-stat-lbl">Orders</div></div>
+        <div class="admin-stat"><div class="admin-stat-val" id="adminCouponCount">0</div><div class="admin-stat-lbl">Active Coupons</div></div>
+      </div>
+      <div class="auth-tabs" style="margin-bottom:16px">
+        <button class="auth-tab active" onclick="adminTab(this,'adminOrdersPanel')">Orders</button>
+        <button class="auth-tab" onclick="adminTab(this,'adminCouponsPanel')">Coupons</button>
+      </div>
+      <div id="adminOrdersPanel" class="admin-panel active" style="max-height:55vh;overflow-y:auto">
+        <div id="adminOrdersList"></div>
+      </div>
+      <div id="adminCouponsPanel" class="admin-panel">
+        <div id="adminCouponsList"></div>
+        <hr style="margin:14px 0">
+        <p style="font-size:13px;font-weight:600;margin:0 0 10px">Create New Coupon</p>
+        <div style="display:grid;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <input class="addr-inp" id="newCouponCode" placeholder="Code (e.g. SAVE20)" style="text-transform:uppercase" />
+            <select class="addr-inp" id="newCouponType">
+              <option value="percent">% off</option>
+              <option value="flat">₹ off</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <input class="addr-inp" id="newCouponValue" type="number" placeholder="Value (e.g. 10)" />
+            <input class="addr-inp" id="newCouponMax" type="number" placeholder="Max uses (0=unlimited)" />
+          </div>
+          <button class="confirm-btn" onclick="adminCreateCoupon()">Create Coupon</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ ACCOUNT MODAL ══════════ -->
 <div class="modal-overlay" id="acctModal">
   <div class="modal-box" style="max-width:420px">
@@ -1229,7 +1432,10 @@
           <p id="acctEmail">—</p>
         </div>
       </div>
-      <h4 style="margin:0 0 12px;font-size:14px;color:var(--dark)">My Orders</h4>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h4 style="margin:0;font-size:14px;color:var(--dark)">My Orders</h4>
+        <span style="font-size:12px;color:var(--gold);font-weight:700" id="acctLoyalty"></span>
+      </div>
       <div id="ordersList"><div class="orders-empty">Loading…</div></div>
       <button class="acct-signout" onclick="doSignOut();closeAccount()">Sign Out</button>
     </div>
@@ -1244,11 +1450,37 @@
   </div>
   <div class="cart-list" id="cartList"></div>
   <div class="cart-ft">
-    <div class="cart-tot">
-      <span class="ct-lbl">Order Total</span>
-      <span class="ct-amt" id="cartAmt">₹0</span>
+    <div class="coupon-row">
+      <input class="coupon-inp" id="couponInp" placeholder="Promo code (e.g. WELCOME10)" />
+      <button class="coupon-apply" onclick="applyCoupon()">Apply</button>
     </div>
-    <p class="ct-note">🚚 Delivery details confirmed after payment</p>
+    <div class="coupon-tag" id="couponTag">
+      <span>🏷 <strong id="couponTagCode"></strong> applied</span>
+      <button onclick="removeCoupon()">✕</button>
+    </div>
+    <div class="loyalty-row" id="loyaltyRow">
+      <span id="loyaltyPtsLabel">Use 0 pts</span>
+      <label class="loy-toggle">
+        <input type="checkbox" id="loyaltyCheck" onchange="toggleLoyalty(this)">
+        <span class="loy-slider"></span>
+      </label>
+    </div>
+    <div class="cart-tot">
+      <span class="ct-lbl">Subtotal</span>
+      <span class="ct-amt" id="cartSubtotal">₹0</span>
+    </div>
+    <div class="disc-line" id="couponDiscLine" style="display:none">
+      <span>Coupon discount</span><span id="couponDiscAmt">-₹0</span>
+    </div>
+    <div class="disc-line" id="loyaltyDiscLine" style="display:none">
+      <span>Loyalty points</span><span id="loyaltyDiscAmt">-₹0</span>
+    </div>
+    <hr class="cart-tot-sep">
+    <div class="cart-tot-final">
+      <span class="ct-final-lbl">Total</span>
+      <span class="ct-final-amt" id="cartFinalAmt">₹0</span>
+    </div>
+    <p class="ct-note">🚚 Address collected at checkout · 🎁 Earn 1pt per ₹10 spent</p>
     <button class="pay-btn" id="payBtn" onclick="startPayment()" disabled>💳 Pay Now (Razorpay)</button>
     <button class="wa-btn" id="checkoutBtn" onclick="checkout()" disabled>💬 Order via WhatsApp</button>
   </div>
@@ -1299,7 +1531,16 @@ function toast(msg){
 
 /* ══════════ CART ══════════ */
 let cart = JSON.parse(localStorage.getItem('mt_cart')||'[]');
+let appliedCoupon = null;
+let useLoyalty = false;
+let loyaltyBalance = 0;
+let wishlist = JSON.parse(localStorage.getItem('mt_wishlist')||'[]');
+let pendingAddress = null;
+let reviewProduct = null;
+let reviewStarSelected = 0;
+
 function save(){ localStorage.setItem('mt_cart',JSON.stringify(cart)); }
+function saveWL(){ localStorage.setItem('mt_wishlist',JSON.stringify(wishlist)); }
 
 function addCart(id,name,price,em){
   const it=cart.find(i=>i.id===id);
@@ -1311,16 +1552,36 @@ function adjQty(id,d){
   const it=cart.find(i=>i.id===id); if(!it) return;
   it.qty+=d; if(it.qty<=0) remCart(id); else{ save(); renderCart(); }
 }
-function total(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
+function rawTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
+function couponDisc(){
+  if(!appliedCoupon) return 0;
+  const base=rawTotal();
+  return appliedCoupon.type==='percent'?Math.round(base*appliedCoupon.value/100):Math.min(appliedCoupon.value,base);
+}
+function loyaltyDisc(){
+  if(!useLoyalty||loyaltyBalance<50) return 0;
+  return Math.min(loyaltyBalance,Math.round(rawTotal()*0.5));
+}
+function total(){ return Math.max(0,rawTotal()-couponDisc()-loyaltyDisc()); }
 
 function renderCart(){
   const count=cart.reduce((s,i)=>s+i.qty,0);
-  const tot=total();
   const badge=document.getElementById('cartCount');
   badge.textContent=count; badge.classList.toggle('hidden',count===0);
-  document.getElementById('cartAmt').textContent='₹'+tot.toLocaleString('en-IN');
   document.getElementById('checkoutBtn').disabled=cart.length===0;
   document.getElementById('payBtn').disabled=cart.length===0;
+  // discounts
+  const raw=rawTotal(), cd=couponDisc(), ld=loyaltyDisc(), fin=total();
+  document.getElementById('cartSubtotal').textContent='₹'+raw.toLocaleString('en-IN');
+  const cl=document.getElementById('couponDiscLine');
+  if(cd>0){ cl.style.display='flex'; document.getElementById('couponDiscAmt').textContent='-₹'+cd.toLocaleString('en-IN'); } else cl.style.display='none';
+  const ll=document.getElementById('loyaltyDiscLine');
+  if(ld>0){ ll.style.display='flex'; document.getElementById('loyaltyDiscAmt').textContent='-₹'+ld.toLocaleString('en-IN'); } else ll.style.display='none';
+  document.getElementById('cartFinalAmt').textContent='₹'+fin.toLocaleString('en-IN');
+  // loyalty row visibility
+  const lr=document.getElementById('loyaltyRow');
+  if(lr){ const show=loyaltyBalance>=50&&cart.length>0; lr.style.display=show?'flex':'none'; if(show) document.getElementById('loyaltyPtsLabel').textContent=`Use ${loyaltyBalance} pts (save ₹${loyaltyDisc()||Math.min(loyaltyBalance,Math.round(raw*0.5))})`; }
+  // items
   const el=document.getElementById('cartList');
   if(!cart.length){
     el.innerHTML='<div class="cart-empty"><div>🛒</div><p>Your cart is empty</p><p class="sub">Browse our beautiful products above!</p></div>';
@@ -1459,9 +1720,11 @@ async function loadOrders(uid){
     el.innerHTML = orders.map(o=>{
       const date = new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
       const items = o.items.map(i=>`${i.name} ×${i.qty}`).join(', ');
+      const status = o.status || 'confirmed';
       return `<div class="order-card">
         <div class="order-card-head">
           <span class="order-card-date">${date}</span>
+          <span class="sb-${status}">${status.charAt(0).toUpperCase()+status.slice(1)}</span>
           <span class="order-card-total">₹${Number(o.total).toLocaleString('en-IN')}</span>
         </div>
         <div class="order-items">${items}</div>
@@ -1503,10 +1766,14 @@ function confirmBooking(){
 }
 
 /* ══════════ RAZORPAY PAYMENT ══════════ */
-async function startPayment(){
+function startPayment(){
   if(!window._currentUser){ openAuth(); toast('Please sign in to place an order 🌿'); return; }
+  if(!cart.length) return;
+  openAddress();
+}
+async function doPayment(){
   const amt=total();
-  if(!amt) return;
+  if(!amt){ toast('Nothing to pay!'); return; }
   try{
     const res=await fetch('/create-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:amt*100,currency:'INR',receipt:'order_'+Date.now()})});
     if(!res.ok) throw new Error('Order creation failed');
@@ -1520,37 +1787,48 @@ async function startPayment(){
       order_id: data.order_id,
       handler: async function(response){
         try{
+          const savedItems=cart.map(i=>({name:i.name,qty:i.qty,price:i.price}));
+          const paidAmt=total(), cd=couponDisc(), ld=loyaltyDisc();
           const vr=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature})});
           const vd=await vr.json();
           if(vd.success){
             document.getElementById('paymentPid').textContent='Payment ID: '+response.razorpay_payment_id;
             document.getElementById('paySuccessModal').classList.add('on');
-            const lines=cart.map(i=>`• ${i.name} ×${i.qty} = ₹${(i.price*i.qty).toLocaleString('en-IN')}`).join('\n');
-            const tot=total();
-            const waMsg=`🎉 *New Order Received — Mehandi Tales*\n\n${lines}\n\n*Total Paid: ₹${tot.toLocaleString('en-IN')}*\n*Payment ID:* ${response.razorpay_payment_id}\n*Status:* ✅ Payment Confirmed`;
+            const lines=savedItems.map(i=>`• ${i.name} ×${i.qty} = ₹${(i.price*i.qty).toLocaleString('en-IN')}`).join('\n');
+            const addrStr=pendingAddress?`\n📍 ${pendingAddress.line1}, ${pendingAddress.city} ${pendingAddress.pincode}`:'';
+            const waMsg=`🎉 *New Order — Mehandi Tales*\n\n${lines}\n\n*Total Paid: ₹${paidAmt.toLocaleString('en-IN')}*\n*Payment ID:* ${response.razorpay_payment_id}${addrStr}\n*Status:* ✅ Confirmed`;
             openWA(`https://wa.me/${WA}?text=${encodeURIComponent(waMsg)}`);
-            // save order for user
             if(window._currentUser){
               fetch('/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                user_id: window._currentUser.uid,
-                items: cart.map(i=>({name:i.name,qty:i.qty,price:i.price})),
-                total: tot,
-                payment_id: response.razorpay_payment_id
-              })}).catch(()=>{});
+                user_id:window._currentUser.uid,
+                user_email:window._currentUser.email||'',
+                user_name:window._currentUser.displayName||'',
+                items:savedItems,
+                total:paidAmt,
+                payment_id:response.razorpay_payment_id,
+                address:pendingAddress?JSON.stringify(pendingAddress):'',
+                discount:cd+ld,
+                loyalty_used:ld,
+                coupon_code:appliedCoupon?.code||''
+              })}).then(r=>r.json()).then(d=>{ if(d.loyalty_earned){ loyaltyBalance+=d.loyalty_earned; toast(`+${d.loyalty_earned} loyalty pts earned! 🌿`); } }).catch(()=>{});
             }
-            cart=[]; save(); renderCart(); closeCart();
+            appliedCoupon=null; useLoyalty=false;
+            document.getElementById('couponInp').value='';
+            document.getElementById('couponTag').style.display='none';
+            document.getElementById('loyaltyCheck').checked=false;
+            cart=[]; pendingAddress=null; save(); renderCart(); closeCart();
           } else { alert('Payment verification failed. Please contact us on WhatsApp.'); }
         }catch(e){ alert('Verification error. Please contact us on WhatsApp.'); }
       },
-      prefill:{ name:'', contact:'' },
+      prefill:{ name:window._currentUser?.displayName||'', contact:pendingAddress?.phone||'' },
       theme:{ color:'#BF8522' },
       modal:{ ondismiss: function(){ toast('Payment cancelled'); } }
     };
     new Razorpay(options).open();
   }catch(e){
-    const msg = e && e.message ? e.message : String(e);
-    toast('Payment error: ' + msg.slice(0, 80));
-    console.error('Payment error:', e);
+    const msg=e&&e.message?e.message:String(e);
+    toast('Payment error: '+msg.slice(0,80));
+    console.error('Payment error:',e);
   }
 }
 function closePaySuccess(){ document.getElementById('paySuccessModal').classList.remove('on'); }
@@ -1639,7 +1917,268 @@ function mdParse(raw){
   return out.join('');
 }
 
+/* ══════════ SEARCH ══════════ */
+function searchProducts(q){
+  const s=q.toLowerCase().trim();
+  document.querySelectorAll('.prod-card').forEach(card=>{
+    const nm=card.querySelector('.prod-name')?.textContent.toLowerCase()||'';
+    const ds=card.querySelector('.prod-desc')?.textContent.toLowerCase()||'';
+    card.style.display=(!s||nm.includes(s)||ds.includes(s))?'':'none';
+  });
+}
+
+/* ══════════ WISHLIST ══════════ */
+function isWL(id){ return wishlist.some(w=>w.id===id); }
+function toggleWishlist(id,name,price){
+  const idx=wishlist.findIndex(w=>w.id===id);
+  if(idx>=0){ wishlist.splice(idx,1); toast('Removed from wishlist'); }
+  else { wishlist.push({id,name,price}); toast('Added to wishlist ♥'); }
+  saveWL();
+  const btn=document.getElementById('wl-'+id);
+  if(btn){ btn.textContent=isWL(id)?'♥':'♡'; btn.classList.toggle('active',isWL(id)); }
+  updateWLCount();
+  if(window._currentUser){
+    const action=idx>=0?'remove':'add';
+    fetch(`/wishlist/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:window._currentUser.uid,product_name:name,product_price:price})}).catch(()=>{});
+  }
+}
+function updateWLCount(){
+  const cnt=wishlist.length;
+  const el=document.getElementById('wlCount');
+  if(el){ el.textContent=cnt; el.style.display=cnt?'inline':'none'; }
+}
+function openWishlist(){
+  const el=document.getElementById('wishlistItems');
+  if(!wishlist.length){ el.innerHTML='<div class="wl-empty">Your wishlist is empty 🌿</div>'; }
+  else {
+    el.innerHTML='<div class="wl-modal-grid">'+wishlist.map(w=>`
+      <div class="wl-card">
+        <div class="wl-card-name">${esc(w.name)}</div>
+        <div class="wl-card-price">₹${w.price.toLocaleString('en-IN')}</div>
+        <div class="wl-card-btns">
+          <button class="wl-card-btn" onclick="addCartFromWl('${w.id}','${esc(w.name)}',${w.price})">Add to Cart</button>
+          <button class="wl-card-rm" onclick="toggleWishlist('${w.id}','${esc(w.name)}',${w.price});openWishlist()">✕</button>
+        </div>
+      </div>`).join('')+'</div>';
+  }
+  document.getElementById('wishlistModal').classList.add('on');
+}
+function closeWishlist(){ document.getElementById('wishlistModal').classList.remove('on'); }
+function addCartFromWl(id,name,price){ addCart(id,name,price,'♥'); closeWishlist(); }
+function initWLButtons(){
+  wishlist.forEach(w=>{ const b=document.getElementById('wl-'+w.id); if(b){b.textContent='♥';b.classList.add('active');} });
+  updateWLCount();
+}
+
+/* ══════════ COUPON ══════════ */
+async function applyCoupon(){
+  const code=document.getElementById('couponInp').value.trim().toUpperCase();
+  if(!code){ toast('Enter a promo code'); return; }
+  try{
+    const res=await fetch('/coupons/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const d=await res.json();
+    if(d.valid){
+      appliedCoupon={code,type:d.discount_type,value:d.discount_value};
+      document.getElementById('couponTag').style.display='flex';
+      document.getElementById('couponTagCode').textContent=code;
+      toast('Coupon applied — '+d.message+' 🎉');
+      renderCart();
+    } else { toast('Invalid coupon: '+d.message); }
+  }catch(e){ toast('Could not validate coupon'); }
+}
+function removeCoupon(){
+  appliedCoupon=null;
+  document.getElementById('couponInp').value='';
+  document.getElementById('couponTag').style.display='none';
+  renderCart();
+  toast('Coupon removed');
+}
+
+/* ══════════ LOYALTY ══════════ */
+function toggleLoyalty(cb){ useLoyalty=cb.checked; renderCart(); }
+async function loadLoyaltyPoints(uid){
+  try{
+    const res=await fetch(`/loyalty/${encodeURIComponent(uid)}`);
+    const d=await res.json();
+    loyaltyBalance=d.points||0;
+    renderCart();
+    const acctEl=document.getElementById('acctLoyalty');
+    if(acctEl) acctEl.textContent=loyaltyBalance?`🌿 ${loyaltyBalance} pts`:'';
+  }catch(e){}
+}
+
+/* ══════════ ADDRESS MODAL ══════════ */
+function openAddress(){ document.getElementById('addrModal').classList.add('on'); }
+function closeAddress(){ document.getElementById('addrModal').classList.remove('on'); }
+function confirmAddress(){
+  const name=document.getElementById('addrName').value.trim();
+  const phone=document.getElementById('addrPhone').value.trim();
+  const line1=document.getElementById('addrLine1').value.trim();
+  const city=document.getElementById('addrCity').value.trim();
+  const pincode=document.getElementById('addrPincode').value.trim();
+  if(!name||!phone||!line1||!city||!pincode){ toast('Please fill all address fields'); return; }
+  pendingAddress={name,phone,line1,city,pincode};
+  closeAddress();
+  doPayment();
+}
+
+/* ══════════ REVIEWS ══════════ */
+function openReviews(productName){
+  reviewProduct=productName; reviewStarSelected=0;
+  document.getElementById('reviewProductName').textContent=productName;
+  document.querySelectorAll('.star-pick span').forEach(s=>s.classList.remove('lit'));
+  document.getElementById('reviewText').value='';
+  loadReviews(productName);
+  document.getElementById('reviewModal').classList.add('on');
+}
+function closeReviews(){ document.getElementById('reviewModal').classList.remove('on'); }
+function pickStar(n){
+  reviewStarSelected=n;
+  document.querySelectorAll('.star-pick span').forEach((s,i)=>s.classList.toggle('lit',i<n));
+}
+async function loadReviews(productName){
+  const el=document.getElementById('reviewList');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">Loading…</div>';
+  try{
+    const res=await fetch(`/reviews/${encodeURIComponent(productName)}`);
+    const reviews=await res.json();
+    if(!reviews.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">No reviews yet — be the first! 🌿</div>'; return; }
+    el.innerHTML=reviews.map(r=>`<div class="rev-item">
+      <div class="rev-head"><span class="rev-name">${esc(r.user_name)}</span><span class="rev-date">${new Date(r.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span></div>
+      <div class="rev-stars">${'★'.repeat(r.rating)+'☆'.repeat(5-r.rating)}</div>
+      ${r.review_text?`<div class="rev-text">${esc(r.review_text)}</div>`:''}
+    </div>`).join('');
+  }catch(e){ el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px;font-size:13px">Could not load reviews</div>'; }
+  updateProdRatings();
+}
+async function submitReview(){
+  if(!window._currentUser){ closeReviews(); openAuth(); toast('Please sign in to review 🌿'); return; }
+  if(!reviewStarSelected){ toast('Please select a star rating'); return; }
+  const text=document.getElementById('reviewText').value.trim();
+  try{
+    await fetch('/reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      user_id:window._currentUser.uid,
+      user_name:window._currentUser.displayName||window._currentUser.email.split('@')[0],
+      product_name:reviewProduct,
+      rating:reviewStarSelected,
+      review_text:text
+    })});
+    toast('Thank you for your review! 🌿');
+    document.getElementById('reviewText').value='';
+    reviewStarSelected=0;
+    document.querySelectorAll('.star-pick span').forEach(s=>s.classList.remove('lit'));
+    loadReviews(reviewProduct);
+  }catch(e){ toast('Error submitting review'); }
+}
+async function updateProdRatings(){
+  const prods=[['cones','Organic Henna Cones'],['combo','Combo Pack — Cones + Oil'],['bridal-kit','Bridal Kit']];
+  for(const [id,name] of prods){
+    try{
+      const res=await fetch(`/reviews/${encodeURIComponent(name)}`);
+      const reviews=await res.json();
+      const el=document.getElementById('stars-'+id);
+      if(!el) continue;
+      if(!reviews.length){ el.querySelector('.stars-cnt').textContent='(0)'; continue; }
+      const avg=reviews.reduce((s,r)=>s+r.rating,0)/reviews.length;
+      const full=Math.round(avg);
+      el.querySelector('.stars-disp').textContent='★'.repeat(full)+'☆'.repeat(5-full);
+      el.querySelector('.stars-cnt').textContent=`(${reviews.length})`;
+    }catch(e){}
+  }
+}
+
+/* ══════════ ADMIN DASHBOARD ══════════ */
+function openAdmin(){
+  if(!window._currentUser||window._currentUser.email!=='mehanditalesbydivya@gmail.com') return;
+  document.getElementById('adminModal').classList.add('on');
+  loadAdminOrders();
+  loadAdminCoupons();
+}
+function closeAdmin(){ document.getElementById('adminModal').classList.remove('on'); }
+function adminTab(btn,panelId){
+  document.querySelectorAll('#adminModal .auth-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.admin-panel').forEach(p=>{ p.classList.remove('active'); p.style.display='none'; });
+  const panel=document.getElementById(panelId);
+  panel.classList.add('active'); panel.style.display='block';
+}
+async function loadAdminOrders(){
+  const el=document.getElementById('adminOrdersList');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">Loading…</div>';
+  try{
+    const res=await fetch(`/admin/orders?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const orders=await res.json();
+    const rev=orders.reduce((s,o)=>s+o.total,0);
+    document.getElementById('adminRevenue').textContent='₹'+rev.toLocaleString('en-IN');
+    document.getElementById('adminOrderCount').textContent=orders.length;
+    if(!orders.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">No orders yet</div>'; return; }
+    el.innerHTML=orders.map(o=>{
+      const items=o.items.map(i=>`${esc(i.name)} ×${i.qty}`).join(', ');
+      const date=new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+      let addr='';
+      try{ const a=JSON.parse(o.address||'{}'); if(a.name) addr=`📍 ${a.name} · ${a.phone} — ${a.line1}, ${a.city} ${a.pincode}`; }catch(e){}
+      return `<div class="admin-order-row">
+        <div class="admin-order-meta">
+          <span style="font-size:11px;color:#bbb">#${o.id}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--gold)">₹${Number(o.total).toLocaleString('en-IN')}</span>
+          <span class="sb-${o.status||'confirmed'}">${(o.status||'confirmed').charAt(0).toUpperCase()+(o.status||'confirmed').slice(1)}</span>
+          <span style="font-size:11px;color:#999;margin-left:auto">${date}</span>
+          <select class="status-select" onchange="adminUpdateStatus(${o.id},this.value)">
+            ${['confirmed','packed','shipped','delivered'].map(s=>`<option value="${s}"${(o.status||'confirmed')===s?' selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="admin-order-items">${items}</div>
+        ${addr?`<div class="admin-order-addr">${addr}</div>`:''}
+        <div style="font-size:10px;color:#ccc;margin-top:4px">${o.payment_id}</div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div style="text-align:center;color:#aaa;font-size:13px">Could not load orders</div>'; }
+}
+async function adminUpdateStatus(orderId,status){
+  try{
+    await fetch(`/orders/${orderId}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,admin_email:window._currentUser.email})});
+    toast('Status updated to '+status);
+  }catch(e){ toast('Error updating status'); }
+}
+async function loadAdminCoupons(){
+  const el=document.getElementById('adminCouponsList');
+  try{
+    const res=await fetch(`/admin/coupons?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const coupons=await res.json();
+    document.getElementById('adminCouponCount').textContent=coupons.filter(c=>c.active).length;
+    if(!coupons.length){ el.innerHTML='<div style="color:#aaa;padding:10px;font-size:13px">No coupons yet</div>'; return; }
+    el.innerHTML=coupons.map(c=>`<div class="admin-coupon-row">
+      <span><strong>${esc(c.code)}</strong> — ${c.discount_type==='percent'?c.discount_value+'% off':'₹'+c.discount_value+' off'}</span>
+      <span style="color:#999;font-size:12px">${c.usage_count}/${c.max_usage||'∞'} uses</span>
+    </div>`).join('');
+  }catch(e){}
+}
+async function adminCreateCoupon(){
+  const code=document.getElementById('newCouponCode').value.trim().toUpperCase();
+  const type=document.getElementById('newCouponType').value;
+  const value=parseInt(document.getElementById('newCouponValue').value)||0;
+  const maxUse=parseInt(document.getElementById('newCouponMax').value)||0;
+  if(!code||!value){ toast('Please fill code and value'); return; }
+  try{
+    await fetch('/admin/coupons',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,discount_type:type,discount_value:value,max_usage:maxUse,admin_email:window._currentUser.email})});
+    toast(`Coupon ${code} created! 🎉`);
+    document.getElementById('newCouponCode').value='';
+    document.getElementById('newCouponValue').value='';
+    loadAdminCoupons();
+  }catch(e){ toast('Error creating coupon'); }
+}
+
+/* ══════════ ACCOUNT — show loyalty ══════════ */
+const _origOpenAccount = openAccount;
+function openAccount(){
+  _origOpenAccount();
+  const acctEl=document.getElementById('acctLoyalty');
+  if(acctEl&&loyaltyBalance) acctEl.textContent=`🌿 ${loyaltyBalance} pts`;
+}
+
 renderCart();
+initWLButtons();
+updateProdRatings();
 </script>
 </body>
 </html>
