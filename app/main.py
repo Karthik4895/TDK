@@ -19,6 +19,8 @@ from app.memory import (
     add_to_wishlist, remove_from_wishlist, get_wishlist,
     add_review, get_reviews,
     get_loyalty_points, add_loyalty_points, use_loyalty_points,
+    get_or_create_referral_code, get_referral_stats,
+    validate_referral_code, record_referral_use,
 )
 from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL
 
@@ -174,6 +176,8 @@ class OrderSaveRequest(BaseModel):
     discount: int = 0
     loyalty_used: int = 0
     coupon_code: str = ""
+    referral_code: str = ""
+    referrer_user_id: str = ""
 
 
 @app.post("/orders", tags=["orders"])
@@ -183,6 +187,7 @@ async def create_order_record(req: OrderSaveRequest):
     save_order(
         req.user_id.strip(), req.items, req.total, req.payment_id,
         address=req.address, discount=req.discount, coupon_code=req.coupon_code,
+        user_email=req.user_email, user_name=req.user_name,
     )
     earned = max(0, req.total // 10)
     if earned:
@@ -191,6 +196,11 @@ async def create_order_record(req: OrderSaveRequest):
         use_loyalty_points(req.user_id.strip(), req.loyalty_used)
     if req.coupon_code:
         use_coupon(req.coupon_code)
+    if req.referral_code and req.user_id:
+        record_referral_use(req.referral_code, req.user_id.strip(), req.payment_id)
+        if req.referrer_user_id:
+            add_loyalty_points(req.referrer_user_id, 100)
+            logger.info("Referrer %s earned 100pts via code %s", req.referrer_user_id, req.referral_code)
     if req.user_email:
         await _send_order_email(req.user_email, req.user_name, req.items, req.total, req.payment_id, req.address)
     return {"saved": True, "loyalty_earned": earned}
@@ -208,7 +218,11 @@ async def set_order_status(order_id: int, req: dict):
     status = req.get("status", "")
     if status not in ("confirmed", "packed", "shipped", "delivered"):
         raise HTTPException(status_code=422, detail="Invalid status")
-    update_order_status(order_id, status)
+    order = update_order_status(order_id, status)
+    if status in ("packed", "shipped", "delivered") and order.get("user_email"):
+        await _send_status_email(
+            order["user_email"], order.get("user_name", ""), status, order.get("payment_id", "")
+        )
     return {"updated": True}
 
 
@@ -252,20 +266,27 @@ async def admin_create_coupon(req: CouponCreateRequest):
 
 class CouponValidateRequest(BaseModel):
     code: str
+    user_id: str = ""
 
 
 @app.post("/coupons/validate", tags=["coupons"])
 async def validate_coupon_endpoint(req: CouponValidateRequest):
+    # Check regular coupons first
     coupon = validate_coupon(req.code)
-    if not coupon:
-        return {"valid": False, "message": "Invalid or expired coupon"}
-    disc = f"{coupon['discount_value']}% off" if coupon["discount_type"] == "percent" else f"₹{coupon['discount_value']} off"
-    return {
-        "valid": True,
-        "discount_type": coupon["discount_type"],
-        "discount_value": coupon["discount_value"],
-        "message": disc,
-    }
+    if coupon:
+        disc = f"{coupon['discount_value']}% off" if coupon["discount_type"] == "percent" else f"₹{coupon['discount_value']} off"
+        return {"valid": True, "type": "coupon", "discount_type": coupon["discount_type"],
+                "discount_value": coupon["discount_value"], "message": disc}
+    # Check referral codes
+    ref = validate_referral_code(req.code, req.user_id)
+    if ref.get("valid"):
+        return {"valid": True, "type": "referral", "discount_type": "flat", "discount_value": 50,
+                "referrer_user_id": ref["referrer_user_id"], "message": "₹50 off (referral gift)"}
+    if ref.get("error") == "self":
+        return {"valid": False, "message": "You can't use your own referral code"}
+    if ref.get("error") == "already_used":
+        return {"valid": False, "message": "You've already used a referral code"}
+    return {"valid": False, "message": "Invalid or expired code"}
 
 
 # ── Wishlist ───────────────────────────────────────────────────────────────────
@@ -336,6 +357,31 @@ async def delete_history(user_id: str):
     return {"message": "Conversation history cleared"}
 
 
+# ── Referral ───────────────────────────────────────────────────────────────────
+
+@app.get("/referral/{user_id}", tags=["referral"])
+async def get_referral(user_id: str, display_name: str = ""):
+    code = get_or_create_referral_code(user_id.strip(), display_name or "User")
+    stats = get_referral_stats(user_id.strip())
+    return {"code": code, "uses": stats["uses"]}
+
+
+# ── Contact ─────────────────────────────────────────────────────────────────────
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    message: str
+
+
+@app.post("/contact", tags=["contact"])
+async def contact_form(req: ContactRequest):
+    if not req.name.strip() or not req.email.strip() or not req.message.strip():
+        raise HTTPException(status_code=422, detail="All fields are required")
+    await _send_contact_email(req.name.strip(), req.email.strip(), req.message.strip())
+    return {"sent": True}
+
+
 # ── Email helper ───────────────────────────────────────────────────────────────
 
 async def _send_order_email(to_email: str, name: str, items: list, total: int, payment_id: str, address: str):
@@ -386,3 +432,79 @@ async def _send_order_email(to_email: str, name: str, items: list, total: int, p
             )
     except Exception as exc:
         logger.warning("Email send failed: %s", exc)
+
+
+async def _send_status_email(to_email: str, name: str, status: str, payment_id: str):
+    if not RESEND_API_KEY or not to_email:
+        return
+    msgs = {
+        "packed":    ("📦 Order Packed!", "Your order has been carefully packed and is heading out soon."),
+        "shipped":   ("🚚 Your Order is On Its Way!", "Great news — your order has been shipped and is en route to you."),
+        "delivered": ("✅ Order Delivered!", "Your order has been delivered. We hope you love it! 🌿"),
+    }
+    title, body = msgs.get(status, ("Order Update", f"Your order status: {status}"))
+    try:
+        html = f"""
+        <div style="font-family:Georgia,serif;max-width:520px;margin:auto;color:#3a1f10">
+          <div style="background:#3a1f10;padding:24px;text-align:center">
+            <h1 style="color:#d4a84a;margin:0;font-size:22px">Mehandi Tales By Divya</h1>
+            <p style="color:#d4a84a;margin:6px 0 0;font-size:14px">{title}</p>
+          </div>
+          <div style="padding:28px;background:#fffdf8">
+            <p>Hi <strong>{name or 'there'}</strong>,</p>
+            <p style="font-size:15px">{body}</p>
+            <p>If you have any questions, WhatsApp us at
+               <a href="https://wa.me/917550084434" style="color:#bf8522">+91 75500 84434</a>.</p>
+            <p style="font-size:12px;color:#bbb;margin-top:20px">Order ref: {payment_id}</p>
+          </div>
+          <div style="background:#f5efe6;padding:14px;text-align:center;font-size:12px;color:#999">
+            © 2025 Mehandi Tales By Divya · Chennai
+          </div>
+        </div>"""
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={
+                    "from": "Mehandi Tales By Divya <onboarding@resend.dev>",
+                    "to": [to_email],
+                    "subject": f"{title} — Mehandi Tales By Divya",
+                    "html": html,
+                },
+                timeout=10,
+            )
+    except Exception as exc:
+        logger.warning("Status email failed: %s", exc)
+
+
+async def _send_contact_email(name: str, email: str, message: str):
+    if not RESEND_API_KEY:
+        return
+    try:
+        html = f"""
+        <div style="font-family:Georgia,serif;max-width:520px;margin:auto;color:#3a1f10">
+          <div style="background:#3a1f10;padding:20px;text-align:center">
+            <h2 style="color:#d4a84a;margin:0">New Message — Mehandi Tales</h2>
+          </div>
+          <div style="padding:24px;background:#fffdf8">
+            <p><strong>From:</strong> {name}</p>
+            <p><strong>Email:</strong> <a href="mailto:{email}" style="color:#bf8522">{email}</a></p>
+            <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+            <p style="white-space:pre-wrap">{message}</p>
+          </div>
+        </div>"""
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={
+                    "from": "Mehandi Tales Website <onboarding@resend.dev>",
+                    "to": [ADMIN_EMAIL],
+                    "reply_to": email,
+                    "subject": f"New message from {name} — Mehandi Tales",
+                    "html": html,
+                },
+                timeout=10,
+            )
+    except Exception as exc:
+        logger.warning("Contact email failed: %s", exc)

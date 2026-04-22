@@ -83,11 +83,29 @@ def init_db():
                 updated_at TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS referral_codes (
+                code TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS referral_uses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL,
+                new_user_id TEXT NOT NULL UNIQUE,
+                payment_id TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
         for alter in [
             "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'confirmed'",
             "ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''",
             "ALTER TABLE orders ADD COLUMN discount INTEGER DEFAULT 0",
             "ALTER TABLE orders ADD COLUMN coupon_code TEXT DEFAULT ''",
+            "ALTER TABLE orders ADD COLUMN user_email TEXT DEFAULT ''",
+            "ALTER TABLE orders ADD COLUMN user_name TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(alter)
@@ -154,13 +172,16 @@ def clear_conversations(user_id: str):
 
 
 def save_order(user_id: str, items: list, total: int, payment_id: str,
-               address: str = "", discount: int = 0, coupon_code: str = ""):
+               address: str = "", discount: int = 0, coupon_code: str = "",
+               user_email: str = "", user_name: str = ""):
     with _get_connection() as conn:
         conn.execute(
-            """INSERT INTO orders (user_id, items, total, payment_id, created_at, status, address, discount, coupon_code)
-               VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?, ?)""",
+            """INSERT INTO orders (user_id, items, total, payment_id, created_at, status,
+               address, discount, coupon_code, user_email, user_name)
+               VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?)""",
             (user_id, json.dumps(items), total, payment_id,
-             datetime.now(timezone.utc).isoformat(), address, discount, coupon_code),
+             datetime.now(timezone.utc).isoformat(), address, discount, coupon_code,
+             user_email, user_name),
         )
         conn.commit()
 
@@ -194,10 +215,16 @@ def get_all_orders(limit: int = 200) -> list:
         return result
 
 
-def update_order_status(order_id: int, status: str):
+def update_order_status(order_id: int, status: str) -> dict:
     with _get_connection() as conn:
         conn.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
         conn.commit()
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if row:
+            d = dict(row)
+            d["items"] = json.loads(d.get("items", "[]"))
+            return d
+        return {}
 
 
 def validate_coupon(code: str):
@@ -300,3 +327,61 @@ def use_loyalty_points(user_id: str, points: int):
             (points, datetime.now(timezone.utc).isoformat(), user_id),
         )
         conn.commit()
+
+
+def get_or_create_referral_code(user_id: str, display_name: str) -> str:
+    import random
+    import string as _string
+    with _get_connection() as conn:
+        row = conn.execute("SELECT code FROM referral_codes WHERE user_id=?", (user_id,)).fetchone()
+        if row:
+            return row["code"]
+        name_part = "".join(c for c in display_name.upper() if c.isalpha())[:4] or "USER"
+        for _ in range(10):
+            rand = "".join(random.choices(_string.ascii_uppercase + _string.digits, k=5))
+            code = f"MT{name_part}{rand}"
+            if not conn.execute("SELECT 1 FROM referral_codes WHERE code=?", (code,)).fetchone():
+                break
+        conn.execute(
+            "INSERT OR IGNORE INTO referral_codes (code, user_id, created_at) VALUES (?, ?, ?)",
+            (code, user_id, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return code
+
+
+def get_referral_stats(user_id: str) -> dict:
+    with _get_connection() as conn:
+        row = conn.execute("SELECT code FROM referral_codes WHERE user_id=?", (user_id,)).fetchone()
+        if not row:
+            return {"code": None, "uses": 0}
+        code = row["code"]
+        cnt = conn.execute("SELECT COUNT(*) AS c FROM referral_uses WHERE code=?", (code,)).fetchone()
+        return {"code": code, "uses": cnt["c"] if cnt else 0}
+
+
+def validate_referral_code(code: str, new_user_id: str = "") -> dict:
+    with _get_connection() as conn:
+        row = conn.execute("SELECT * FROM referral_codes WHERE code=?", (code.upper(),)).fetchone()
+        if not row:
+            return {"valid": False, "error": "not_found"}
+        r = dict(row)
+        if new_user_id and r["user_id"] == new_user_id:
+            return {"valid": False, "error": "self"}
+        if new_user_id:
+            used = conn.execute("SELECT 1 FROM referral_uses WHERE new_user_id=?", (new_user_id,)).fetchone()
+            if used:
+                return {"valid": False, "error": "already_used"}
+        return {"valid": True, "referrer_user_id": r["user_id"]}
+
+
+def record_referral_use(code: str, new_user_id: str, payment_id: str = ""):
+    with _get_connection() as conn:
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO referral_uses (code, new_user_id, payment_id, created_at) VALUES (?, ?, ?, ?)",
+                (code.upper(), new_user_id, payment_id, datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+        except Exception:
+            pass

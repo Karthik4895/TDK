@@ -849,6 +849,35 @@
     .status-select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:#fff;margin-left:auto}
     .admin-coupon-row{display:flex;justify-content:space-between;align-items:center;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px}
     .admin-nav-btn{background:var(--dark);color:var(--gold);border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:none}
+    /* ══ ANNOUNCE BANNER ══ */
+    .announce-bar{background:var(--gold);color:var(--dark);display:flex;align-items:center;overflow:hidden;height:36px;position:relative}
+    .announce-inner{flex:1;overflow:hidden;white-space:nowrap}
+    .announce-text{display:inline-block;animation:marquee 30s linear infinite;font-size:13px;font-weight:600;padding-right:60px}
+    @keyframes marquee{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+    .announce-x{position:absolute;right:12px;background:none;border:none;font-size:18px;font-weight:700;cursor:pointer;color:var(--dark);line-height:1;z-index:2}
+    /* ══ CONTACT ══ */
+    #contact{padding:80px 5% 60px;background:var(--white)}
+    .contact-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:48px;max-width:920px;margin:32px auto 0}
+    .contact-info-list{display:flex;flex-direction:column;gap:22px}
+    .contact-item{display:flex;align-items:flex-start;gap:16px}
+    .contact-icon{font-size:24px;flex-shrink:0;margin-top:1px}
+    .contact-label{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+    .contact-val{font-size:14px;font-weight:600;color:var(--dark)}
+    .contact-val a{color:var(--dark);text-decoration:none}
+    .contact-val a:hover{color:var(--gold)}
+    .contact-form-box{background:var(--cream);border:1px solid var(--border);border-radius:16px;padding:30px}
+    .contact-form-title{margin:0 0 20px;font-size:18px;color:var(--dark);font-family:'Cormorant Garamond',Georgia,serif}
+    .contact-success{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:10px;padding:14px 16px;font-size:14px;display:none;margin-bottom:12px}
+    @media(max-width:680px){.contact-grid{grid-template-columns:1fr}}
+    /* ══ REFERRAL ══ */
+    .ref-box{background:linear-gradient(135deg,#fffdf5,#fef9ec);border:1.5px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+    .ref-box-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--dark)}
+    .ref-stats{font-size:11px;color:#aaa;font-weight:400}
+    .ref-code-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .ref-code{font-size:18px;font-weight:800;color:var(--gold);letter-spacing:2px;flex:1}
+    .ref-copy{background:var(--dark);color:var(--gold);border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
+    .ref-share{background:#25D366;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
+    .ref-note{font-size:11px;color:#999;margin:0}
     .wl-nav-btn{position:relative;background:var(--white);color:var(--dark);border:1.5px solid var(--border);padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;transition:border-color .2s}
     .wl-nav-btn:hover{border-color:var(--gold)}
     .sb-confirmed{background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
@@ -862,6 +891,14 @@
 <div class="overlay" id="overlay" onclick="closeCart()"></div>
 
 <!-- ══════════ NAV ══════════ -->
+<!-- ══════════ ANNOUNCE BANNER ══════════ -->
+<div class="announce-bar" id="announceBanner">
+  <div class="announce-inner">
+    <span class="announce-text">🌿 New here? Use code <strong>WELCOME10</strong> for 10% off your first order! &nbsp;·&nbsp; 🎁 Refer a friend &amp; both of you save &nbsp;·&nbsp; ⭐ 100% organic henna — safe for all skin types &nbsp;·&nbsp; 🌿 New here? Use code <strong>WELCOME10</strong> for 10% off your first order! &nbsp;·&nbsp; 🎁 Refer a friend &amp; both of you save &nbsp;·&nbsp;</span>
+  </div>
+  <button class="announce-x" onclick="dismissBanner()" aria-label="Close">✕</button>
+</div>
+
 <nav>
   <a href="#hero" class="nav-brand">
     <div class="nav-logo">
@@ -879,6 +916,7 @@
     <li><a href="#services">Services</a></li>
     <li><a href="#gallery">Gallery</a></li>
     <li><a href="#why">About</a></li>
+    <li><a href="#contact">Contact</a></li>
   </ul>
   <div class="nav-right">
     <button id="authBtn" class="auth-btn" onclick="openAuth()">👤 Sign In</button>
@@ -1199,6 +1237,65 @@
   </div>
 </section>
 
+<!-- ══════════ CONTACT ══════════ -->
+<section id="contact">
+  <div class="sec-head">
+    <div class="sec-kicker">Get In Touch</div>
+    <h2 class="sec-h">Contact Us</h2>
+    <div class="sec-orn"><span>🌸</span></div>
+    <p class="sec-p">We'd love to hear from you — for bookings, queries or just a hello!</p>
+  </div>
+  <div class="contact-grid">
+    <div class="contact-info-list">
+      <div class="contact-item">
+        <div class="contact-icon">💬</div>
+        <div>
+          <div class="contact-label">WhatsApp</div>
+          <div class="contact-val"><a href="https://wa.me/917550084434" target="_blank">+91 75500 84434</a></div>
+        </div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon">📧</div>
+        <div>
+          <div class="contact-label">Email</div>
+          <div class="contact-val"><a href="mailto:mehanditalesbydivya@gmail.com">mehanditalesbydivya@gmail.com</a></div>
+        </div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon">📸</div>
+        <div>
+          <div class="contact-label">Instagram</div>
+          <div class="contact-val"><a href="https://instagram.com/mehanditales_divya" target="_blank">@mehanditales_divya</a></div>
+        </div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon">📍</div>
+        <div>
+          <div class="contact-label">Location</div>
+          <div class="contact-val">Chennai, Tamil Nadu</div>
+        </div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon">⏰</div>
+        <div>
+          <div class="contact-label">Business Hours</div>
+          <div class="contact-val">Mon – Sat, 9 AM – 7 PM</div>
+        </div>
+      </div>
+    </div>
+    <div class="contact-form-box">
+      <h3 class="contact-form-title">Send a Message</h3>
+      <div class="contact-success" id="contactSuccess">Thank you! Divya will get back to you shortly 🌿</div>
+      <div id="contactForm">
+        <input class="addr-inp" id="ctName" placeholder="Your Name *" style="margin-bottom:10px;display:block;width:100%;box-sizing:border-box" />
+        <input class="addr-inp" id="ctEmail" type="email" placeholder="Email Address *" style="margin-bottom:10px;display:block;width:100%;box-sizing:border-box" />
+        <textarea class="rev-textarea" id="ctMsg" placeholder="Your message…" style="min-height:120px;margin-bottom:14px;display:block;width:100%;box-sizing:border-box"></textarea>
+        <button class="confirm-btn" onclick="sendContact()" style="width:100%">Send Message 🌿</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ══════════ FOOTER ══════════ -->
 <footer>
   <div class="ft-brand">MEHANDI TALES</div>
@@ -1209,6 +1306,7 @@
     <li><a href="#services">Services</a></li>
     <li><a href="#gallery">Gallery</a></li>
     <li><a href="#why">About</a></li>
+    <li><a href="#contact">Contact</a></li>
   </ul>
   <hr class="ft-hr" />
   <p class="ft-copy">© 2025 Mehandi Tales By Divya · All rights reserved · Made with 🌿 in Chennai</p>
@@ -1432,6 +1530,18 @@
           <p id="acctEmail">—</p>
         </div>
       </div>
+      <div class="ref-box">
+        <div class="ref-box-head">
+          <span>🔗 Your Referral Code</span>
+          <span class="ref-stats" id="refStats"></span>
+        </div>
+        <div class="ref-code-row">
+          <span class="ref-code" id="refCode">—</span>
+          <button class="ref-copy" onclick="copyRefCode()">Copy</button>
+          <button class="ref-share" onclick="shareRefCode()">WhatsApp</button>
+        </div>
+        <p class="ref-note">Friend gets ₹50 off · You earn ₹100 loyalty points 🌿</p>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h4 style="margin:0;font-size:14px;color:var(--dark)">My Orders</h4>
         <span style="font-size:12px;color:var(--gold);font-weight:700" id="acctLoyalty"></span>
@@ -1451,7 +1561,7 @@
   <div class="cart-list" id="cartList"></div>
   <div class="cart-ft">
     <div class="coupon-row">
-      <input class="coupon-inp" id="couponInp" placeholder="Promo code (e.g. WELCOME10)" />
+      <input class="coupon-inp" id="couponInp" placeholder="Promo or referral code" />
       <button class="coupon-apply" onclick="applyCoupon()">Apply</button>
     </div>
     <div class="coupon-tag" id="couponTag">
@@ -1474,6 +1584,9 @@
     </div>
     <div class="disc-line" id="loyaltyDiscLine" style="display:none">
       <span>Loyalty points</span><span id="loyaltyDiscAmt">-₹0</span>
+    </div>
+    <div class="disc-line" id="referralDiscLine" style="display:none">
+      <span>Referral discount</span><span>-₹50</span>
     </div>
     <hr class="cart-tot-sep">
     <div class="cart-tot-final">
@@ -1532,6 +1645,7 @@ function toast(msg){
 /* ══════════ CART ══════════ */
 let cart = JSON.parse(localStorage.getItem('mt_cart')||'[]');
 let appliedCoupon = null;
+let appliedReferral = null;
 let useLoyalty = false;
 let loyaltyBalance = 0;
 let wishlist = JSON.parse(localStorage.getItem('mt_wishlist')||'[]');
@@ -1562,7 +1676,8 @@ function loyaltyDisc(){
   if(!useLoyalty||loyaltyBalance<50) return 0;
   return Math.min(loyaltyBalance,Math.round(rawTotal()*0.5));
 }
-function total(){ return Math.max(0,rawTotal()-couponDisc()-loyaltyDisc()); }
+function referralDisc(){ return appliedReferral?50:0; }
+function total(){ return Math.max(0,rawTotal()-couponDisc()-loyaltyDisc()-referralDisc()); }
 
 function renderCart(){
   const count=cart.reduce((s,i)=>s+i.qty,0);
@@ -1571,7 +1686,8 @@ function renderCart(){
   document.getElementById('checkoutBtn').disabled=cart.length===0;
   document.getElementById('payBtn').disabled=cart.length===0;
   // discounts
-  const raw=rawTotal(), cd=couponDisc(), ld=loyaltyDisc(), fin=total();
+  const raw=rawTotal(), cd=couponDisc(), ld=loyaltyDisc(), rd=referralDisc(), fin=total();
+  const rl2=document.getElementById('referralDiscLine'); if(rl2) rl2.style.display=rd?'flex':'none';
   document.getElementById('cartSubtotal').textContent='₹'+raw.toLocaleString('en-IN');
   const cl=document.getElementById('couponDiscLine');
   if(cd>0){ cl.style.display='flex'; document.getElementById('couponDiscAmt').textContent='-₹'+cd.toLocaleString('en-IN'); } else cl.style.display='none';
@@ -1796,10 +1912,7 @@ async function doPayment(){
           if(vd.success){
             document.getElementById('paymentPid').textContent='Payment ID: '+response.razorpay_payment_id;
             document.getElementById('paySuccessModal').classList.add('on');
-            const lines=savedItems.map(i=>`• ${i.name} ×${i.qty} = ₹${(i.price*i.qty).toLocaleString('en-IN')}`).join('\n');
-            const addrStr=pendingAddress?`\n📍 ${pendingAddress.line1}, ${pendingAddress.city} ${pendingAddress.pincode}`:'';
-            const waMsg=`🎉 *New Order — Mehandi Tales*\n\n${lines}\n\n*Total Paid: ₹${paidAmt.toLocaleString('en-IN')}*\n*Payment ID:* ${response.razorpay_payment_id}${addrStr}\n*Status:* ✅ Confirmed`;
-            openWA(`https://wa.me/${WA}?text=${encodeURIComponent(waMsg)}`);
+            // Divya is notified via email BCC on order confirmation
             if(window._currentUser){
               fetch('/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
                 user_id:window._currentUser.uid,
@@ -1809,12 +1922,14 @@ async function doPayment(){
                 total:paidAmt,
                 payment_id:response.razorpay_payment_id,
                 address:pendingAddress?JSON.stringify(pendingAddress):'',
-                discount:cd+ld,
+                discount:cd+ld+rd,
                 loyalty_used:ld,
-                coupon_code:appliedCoupon?.code||''
+                coupon_code:appliedCoupon?.code||'',
+                referral_code:appliedReferral?.code||'',
+                referrer_user_id:appliedReferral?.referrer_user_id||''
               })}).then(r=>r.json()).then(d=>{ if(d.loyalty_earned){ loyaltyBalance+=d.loyalty_earned; toast(`+${d.loyalty_earned} loyalty pts earned! 🌿`); } }).catch(()=>{});
             }
-            appliedCoupon=null; useLoyalty=false;
+            appliedCoupon=null; appliedReferral=null; useLoyalty=false;
             document.getElementById('couponInp').value='';
             document.getElementById('couponTag').style.display='none';
             document.getElementById('loyaltyCheck').checked=false;
@@ -1975,25 +2090,35 @@ function initWLButtons(){
 /* ══════════ COUPON ══════════ */
 async function applyCoupon(){
   const code=document.getElementById('couponInp').value.trim().toUpperCase();
-  if(!code){ toast('Enter a promo code'); return; }
+  if(!code){ toast('Enter a promo or referral code'); return; }
   try{
-    const res=await fetch('/coupons/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const uid=window._currentUser?.uid||'';
+    const res=await fetch('/coupons/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,user_id:uid})});
     const d=await res.json();
     if(d.valid){
-      appliedCoupon={code,type:d.discount_type,value:d.discount_value};
-      document.getElementById('couponTag').style.display='flex';
-      document.getElementById('couponTagCode').textContent=code;
-      toast('Coupon applied — '+d.message+' 🎉');
+      if(d.type==='referral'){
+        appliedReferral={code,referrer_user_id:d.referrer_user_id};
+        appliedCoupon=null;
+        document.getElementById('couponTag').style.display='flex';
+        document.getElementById('couponTagCode').textContent=code+' (referral)';
+        toast('Referral code applied — ₹50 off! 🎉');
+      } else {
+        appliedCoupon={code,type:d.discount_type,value:d.discount_value};
+        appliedReferral=null;
+        document.getElementById('couponTag').style.display='flex';
+        document.getElementById('couponTagCode').textContent=code;
+        toast('Code applied — '+d.message+' 🎉');
+      }
       renderCart();
-    } else { toast('Invalid coupon: '+d.message); }
-  }catch(e){ toast('Could not validate coupon'); }
+    } else { toast('Invalid code: '+d.message); }
+  }catch(e){ toast('Could not validate code'); }
 }
 function removeCoupon(){
-  appliedCoupon=null;
+  appliedCoupon=null; appliedReferral=null;
   document.getElementById('couponInp').value='';
   document.getElementById('couponTag').style.display='none';
   renderCart();
-  toast('Coupon removed');
+  toast('Code removed');
 }
 
 /* ══════════ LOYALTY ══════════ */
@@ -2169,6 +2294,64 @@ async function adminCreateCoupon(){
     loadAdminCoupons();
   }catch(e){ toast('Error creating coupon'); }
 }
+
+/* ══════════ REFERRAL ══════════ */
+async function loadReferralCode(){
+  if(!window._currentUser) return;
+  try{
+    const name=encodeURIComponent(window._currentUser.displayName||window._currentUser.email||'User');
+    const res=await fetch(`/referral/${encodeURIComponent(window._currentUser.uid)}?display_name=${name}`);
+    const d=await res.json();
+    const el=document.getElementById('refCode');
+    if(el) el.textContent=d.code||'—';
+    const st=document.getElementById('refStats');
+    if(st) st.textContent=d.uses?`${d.uses} friend${d.uses>1?'s':''} joined`:'';
+  }catch(e){}
+}
+function copyRefCode(){
+  const code=document.getElementById('refCode')?.textContent||'';
+  if(!code||code==='—') return;
+  navigator.clipboard.writeText(code).then(()=>toast('Code copied! '+code+' 📋')).catch(()=>toast('Code: '+code));
+}
+function shareRefCode(){
+  const code=document.getElementById('refCode')?.textContent||'';
+  if(!code||code==='—') return;
+  const msg=`Hey! I found the most beautiful henna designs at Mehandi Tales By Divya 🌿\n\nUse my code *${code}* to get ₹50 off your first order!\n\nhttps://www.mehanditalesbydivya.com`;
+  openWA(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+}
+
+/* ══════════ CONTACT FORM ══════════ */
+async function sendContact(){
+  const name=document.getElementById('ctName').value.trim();
+  const email=document.getElementById('ctEmail').value.trim();
+  const msg=document.getElementById('ctMsg').value.trim();
+  if(!name||!email||!msg){ toast('Please fill all fields'); return; }
+  try{
+    const res=await fetch('/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,message:msg})});
+    if(!res.ok) throw new Error();
+    document.getElementById('contactForm').style.display='none';
+    document.getElementById('contactSuccess').style.display='block';
+    toast('Message sent! 🌿');
+  }catch(e){ toast('Could not send message — try WhatsApp instead'); }
+}
+
+/* ══════════ BANNER ══════════ */
+function dismissBanner(){
+  document.getElementById('announceBanner').style.display='none';
+  localStorage.setItem('mt_banner_off','1');
+}
+if(localStorage.getItem('mt_banner_off')){
+  const b=document.getElementById('announceBanner');
+  if(b) b.style.display='none';
+}
+
+/* ══════════ ACCOUNT openAccount hook ══════════ */
+const _origOpen=openAccount;
+// Override to also load referral code
+window.openAccount=function(){
+  _origOpen();
+  loadReferralCode();
+};
 
 renderCart();
 initWLButtons();
