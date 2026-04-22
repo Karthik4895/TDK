@@ -81,6 +81,17 @@ async def service_worker():
     )
 
 
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+async def apple_touch_icon():
+    png_path = "app/static/apple-touch-icon.png"
+    if os.path.exists(png_path):
+        return FileResponse(png_path, media_type="image/png")
+    # Fallback: serve SVG with image/png content-type is wrong,
+    # so return the SVG as-is (iOS 15.4+ handles it)
+    return FileResponse("app/static/icon-512.svg", media_type="image/svg+xml")
+
+
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 async def health():
     return {"status": "ok", "version": APP_VERSION, "environment": APP_ENV}
