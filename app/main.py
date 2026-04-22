@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from app.models import QueryRequest, QueryResponse, HealthResponse
 from app.graph import graph
-from app.memory import init_db, save_conversation, get_conversations, clear_conversations
+from app.memory import init_db, save_conversation, get_conversations, clear_conversations, save_order, get_orders
 from app.config import APP_ENV
 
 try:
@@ -162,6 +162,26 @@ async def verify_payment(req: VerifyRequest):
 @app.get("/history/{user_id}", tags=["chat"])
 async def history(user_id: str, limit: int = 20):
     return get_conversations(user_id.strip(), min(limit, 50))
+
+
+class OrderSaveRequest(BaseModel):
+    user_id: str
+    items: list
+    total: int
+    payment_id: str
+
+
+@app.post("/orders", tags=["orders"])
+async def create_order_record(req: OrderSaveRequest):
+    if not req.user_id.strip():
+        raise HTTPException(status_code=422, detail="user_id must not be empty")
+    save_order(req.user_id.strip(), req.items, req.total, req.payment_id)
+    return {"saved": True}
+
+
+@app.get("/orders/{user_id}", tags=["orders"])
+async def fetch_orders(user_id: str, limit: int = 20):
+    return get_orders(user_id.strip(), min(limit, 50))
 
 
 @app.delete("/history/{user_id}", tags=["chat"])

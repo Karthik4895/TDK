@@ -34,6 +34,17 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                items TEXT NOT NULL,
+                total INTEGER NOT NULL,
+                payment_id TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)")
         conn.commit()
     logger.info("Database initialized")
 
@@ -83,3 +94,29 @@ def clear_conversations(user_id: str):
     with _get_connection() as conn:
         conn.execute("DELETE FROM conversations WHERE user_id = ?", (user_id,))
         conn.commit()
+
+
+def save_order(user_id: str, items: list, total: int, payment_id: str):
+    with _get_connection() as conn:
+        conn.execute(
+            """INSERT INTO orders (user_id, items, total, payment_id, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, json.dumps(items), total, payment_id, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+
+def get_orders(user_id: str, limit: int = 20) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            """SELECT id, items, total, payment_id, created_at
+               FROM orders WHERE user_id = ?
+               ORDER BY created_at DESC LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["items"] = json.loads(d["items"])
+            result.append(d)
+        return result

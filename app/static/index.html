@@ -145,6 +145,20 @@
     .user-pill:hover { border-color:var(--gold); }
     .user-pill img { width:30px; height:30px; border-radius:50%; object-fit:cover; }
     .user-pill span { font-size:13px; font-weight:600; color:var(--dark); }
+    /* Account modal */
+    .acct-header { display:flex; align-items:center; gap:14px; padding:18px 0 14px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+    .acct-avatar { width:54px; height:54px; border-radius:50%; object-fit:cover; background:var(--cream); border:2px solid var(--gold); }
+    .acct-avatar-ph { width:54px; height:54px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--white); font-weight:700; flex-shrink:0; }
+    .acct-info h3 { margin:0 0 2px; font-size:16px; color:var(--dark); }
+    .acct-info p  { margin:0; font-size:12px; color:#888; }
+    .orders-empty { text-align:center; padding:30px 0; color:#aaa; font-size:14px; }
+    .order-card { border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; background:var(--cream); }
+    .order-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .order-card-date { font-size:11px; color:#999; }
+    .order-card-total { font-size:15px; font-weight:700; color:var(--gold); }
+    .order-items { font-size:13px; color:#555; line-height:1.7; }
+    .order-pid { font-size:10px; color:#bbb; margin-top:6px; }
+    .acct-signout { width:100%; margin-top:18px; padding:10px; border:none; border-radius:8px; background:#8B1A1A; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
     /* Auth modal */
     .auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:22px; }
     .auth-tab {
@@ -782,7 +796,7 @@
   </ul>
   <div class="nav-right">
     <button id="authBtn" class="auth-btn" onclick="openAuth()">👤 Sign In</button>
-    <div id="userPill" class="user-pill" onclick="openAuth()">
+    <div id="userPill" class="user-pill" onclick="openAccount()">
       <img id="userAvatar" src="" alt="avatar" />
       <span id="userName"></span>
     </div>
@@ -1200,6 +1214,28 @@
   </div>
 </div>
 
+<!-- ══════════ ACCOUNT MODAL ══════════ -->
+<div class="modal-overlay" id="acctModal">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-head">
+      <div><h3>My Account</h3></div>
+      <button class="modal-close" onclick="closeAccount()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="acct-header">
+        <div id="acctAvatarWrap"></div>
+        <div class="acct-info">
+          <h3 id="acctName">—</h3>
+          <p id="acctEmail">—</p>
+        </div>
+      </div>
+      <h4 style="margin:0 0 12px;font-size:14px;color:var(--dark)">My Orders</h4>
+      <div id="ordersList"><div class="orders-empty">Loading…</div></div>
+      <button class="acct-signout" onclick="doSignOut();closeAccount()">Sign Out</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ CART DRAWER ══════════ -->
 <div class="cart-drawer" id="cartDrawer">
   <div class="cart-hd">
@@ -1395,6 +1431,46 @@ async function doSignOut(){
 }
 window._currentUser = null;
 
+/* ══════════ ACCOUNT MODAL ══════════ */
+function openAccount(){
+  if(!window._currentUser){ openAuth(); return; }
+  const u = window._currentUser;
+  // avatar
+  const wrap = document.getElementById('acctAvatarWrap');
+  if(u.photoURL){
+    wrap.innerHTML = `<img class="acct-avatar" src="${u.photoURL}" alt="avatar">`;
+  } else {
+    const initial = (u.displayName||u.email||'U')[0].toUpperCase();
+    wrap.innerHTML = `<div class="acct-avatar-ph">${initial}</div>`;
+  }
+  document.getElementById('acctName').textContent  = u.displayName || 'My Account';
+  document.getElementById('acctEmail').textContent = u.email || '';
+  document.getElementById('acctModal').classList.add('on');
+  loadOrders(u.uid);
+}
+function closeAccount(){ document.getElementById('acctModal').classList.remove('on'); }
+async function loadOrders(uid){
+  const el = document.getElementById('ordersList');
+  el.innerHTML = '<div class="orders-empty">Loading…</div>';
+  try{
+    const res = await fetch(`/orders/${encodeURIComponent(uid)}?limit=20`);
+    const orders = await res.json();
+    if(!orders.length){ el.innerHTML = '<div class="orders-empty">No orders yet 🌿</div>'; return; }
+    el.innerHTML = orders.map(o=>{
+      const date = new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+      const items = o.items.map(i=>`${i.name} ×${i.qty}`).join(', ');
+      return `<div class="order-card">
+        <div class="order-card-head">
+          <span class="order-card-date">${date}</span>
+          <span class="order-card-total">₹${Number(o.total).toLocaleString('en-IN')}</span>
+        </div>
+        <div class="order-items">${items}</div>
+        <div class="order-pid">Payment ID: ${o.payment_id}</div>
+      </div>`;
+    }).join('');
+  }catch(e){ el.innerHTML = '<div class="orders-empty">Could not load orders</div>'; }
+}
+
 /* ══════════ BOOKING CALENDAR ══════════ */
 let bookingService='', bookingPrice=0, selectedSlot='';
 
@@ -1453,6 +1529,15 @@ async function startPayment(){
             const tot=total();
             const waMsg=`🎉 *New Order Received — Mehandi Tales*\n\n${lines}\n\n*Total Paid: ₹${tot.toLocaleString('en-IN')}*\n*Payment ID:* ${response.razorpay_payment_id}\n*Status:* ✅ Payment Confirmed`;
             openWA(`https://wa.me/${WA}?text=${encodeURIComponent(waMsg)}`);
+            // save order for user
+            if(window._currentUser){
+              fetch('/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                user_id: window._currentUser.uid,
+                items: cart.map(i=>({name:i.name,qty:i.qty,price:i.price})),
+                total: tot,
+                payment_id: response.razorpay_payment_id
+              })}).catch(()=>{});
+            }
             cart=[]; save(); renderCart(); closeCart();
           } else { alert('Payment verification failed. Please contact us on WhatsApp.'); }
         }catch(e){ alert('Verification error. Please contact us on WhatsApp.'); }
