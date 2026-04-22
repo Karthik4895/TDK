@@ -1,5 +1,6 @@
 import hmac
 import hashlib
+import os
 import time
 import logging
 from contextlib import asynccontextmanager
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 from app.models import QueryRequest, QueryResponse, HealthResponse
 from app.graph import graph
 from app.memory import init_db, save_conversation, get_conversations, clear_conversations
-from app.config import APP_ENV, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+from app.config import APP_ENV
 
 try:
     import razorpay as _razorpay
@@ -109,29 +110,33 @@ class VerifyRequest(BaseModel):
 
 @app.get("/payment-status", tags=["payment"])
 async def payment_status():
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    secret  = os.getenv("RAZORPAY_KEY_SECRET", "")
     return {
-        "key_id_set": bool(RAZORPAY_KEY_ID),
-        "key_id_prefix": RAZORPAY_KEY_ID[:8] if RAZORPAY_KEY_ID else "NOT SET",
-        "secret_set": bool(RAZORPAY_KEY_SECRET),
+        "key_id_set": bool(key_id),
+        "key_id_prefix": key_id[:8] if key_id else "NOT SET",
+        "secret_set": bool(secret),
         "razorpay_pkg": _razorpay is not None,
     }
 
 
 @app.post("/create-order", tags=["payment"])
 async def create_order(req: OrderRequest):
-    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    secret  = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not secret:
         raise HTTPException(status_code=503, detail="Payment not configured")
     if _razorpay is None:
         raise HTTPException(status_code=503, detail="Razorpay package not available")
     try:
-        client = _razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        client = _razorpay.Client(auth=(key_id, secret))
         order = client.order.create({
             "amount": req.amount,
             "currency": req.currency,
             "receipt": req.receipt,
             "payment_capture": 1,
         })
-        return {"order_id": order["id"], "key_id": RAZORPAY_KEY_ID, "amount": req.amount}
+        return {"order_id": order["id"], "key_id": key_id, "amount": req.amount}
     except Exception as exc:
         logger.error("Razorpay order creation failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -139,11 +144,12 @@ async def create_order(req: OrderRequest):
 
 @app.post("/verify-payment", tags=["payment"])
 async def verify_payment(req: VerifyRequest):
-    if not RAZORPAY_KEY_SECRET:
+    secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not secret:
         raise HTTPException(status_code=503, detail="Payment not configured")
     body = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
     expected = hmac.new(
-        RAZORPAY_KEY_SECRET.encode(),
+        secret.encode(),
         body.encode(),
         hashlib.sha256,
     ).hexdigest()
