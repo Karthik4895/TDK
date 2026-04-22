@@ -505,6 +505,66 @@
     #toast { position:fixed; bottom:96px; left:50%; transform:translateX(-50%); background:var(--dark); color:var(--gold-l); padding:10px 24px; border-radius:50px; font-size:13px; font-weight:500; box-shadow:0 4px 20px var(--shadow); opacity:0; transition:opacity .3s; pointer-events:none; z-index:600; border:1px solid rgba(191,133,34,.3); }
     #toast.show { opacity:1; }
 
+    /* ══════════════════ GALLERY ══════════════════ */
+    #gallery { background:var(--bg); }
+
+    .gal-filter {
+      display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:40px;
+    }
+    .gal-f-btn {
+      padding:9px 26px; border-radius:50px; border:2px solid var(--border);
+      background:transparent; color:var(--brown); font-family:'Cinzel',serif;
+      font-size:12px; font-weight:600; letter-spacing:.4px; cursor:pointer;
+      transition:all .22s; touch-action:manipulation;
+    }
+    .gal-f-btn.active,
+    .gal-f-btn:hover { background:var(--dark); border-color:var(--dark); color:var(--gold-l); }
+
+    .gal-grid {
+      display:grid; grid-template-columns:repeat(3,1fr);
+      gap:16px; max-width:1020px; margin:0 auto;
+    }
+
+    .gal-item {
+      position:relative; border-radius:16px; overflow:hidden;
+      aspect-ratio:4/5; cursor:pointer;
+      transition:transform .28s, box-shadow .28s;
+      box-shadow:0 4px 18px rgba(58,31,16,.08);
+    }
+    .gal-item:hover { transform:translateY(-5px); box-shadow:0 16px 44px rgba(58,31,16,.18); }
+    .gal-item.gal-hidden { display:none; }
+
+    .gal-ph { width:100%; height:100%; }
+    .gal-ph img { width:100%; height:100%; object-fit:cover; display:block; }
+
+    .gp-bridal  { background:linear-gradient(135deg,#FCE4EC 0%,#F8BBD0 50%,#EF9A9A 100%); }
+    .gp-arabic  { background:linear-gradient(135deg,#E8F5E9 0%,#C8E6C9 50%,#A5D6A7 100%); }
+    .gp-trad    { background:linear-gradient(135deg,#FFF8E1 0%,#FFE0B2 50%,#FFCC80 100%); }
+    .gp-simple  { background:linear-gradient(135deg,#EDE7F6 0%,#D1C4E9 50%,#B39DDB 100%); }
+
+    .gal-ph-inner {
+      width:100%; height:100%; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:10px;
+    }
+    .gal-ph-inner span { font-size:52px; opacity:.55; }
+    .gal-ph-inner p { font-size:11px; color:rgba(0,0,0,.35); font-weight:500; letter-spacing:.3px; }
+
+    .gal-cat-tag {
+      position:absolute; top:12px; left:12px;
+      background:rgba(42,15,5,.72); color:var(--gold-l); backdrop-filter:blur(6px);
+      font-size:10px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+      padding:4px 12px; border-radius:50px;
+    }
+    .gal-overlay {
+      position:absolute; inset:0;
+      background:linear-gradient(180deg,transparent 45%,rgba(42,15,5,.88) 100%);
+      display:flex; flex-direction:column; justify-content:flex-end; padding:16px;
+      opacity:0; transition:opacity .25s;
+    }
+    .gal-item:hover .gal-overlay { opacity:1; }
+    .gal-overlay-title { font-family:'Cinzel',serif; font-size:13px; color:#fff; font-weight:600; }
+    .gal-overlay-sub   { font-size:11px; color:rgba(255,255,255,.65); margin-top:3px; }
+
     /* ══════════════════ RESPONSIVE ══════════════════ */
     @media(max-width:768px) {
       .nav-links { display:none; }
@@ -513,11 +573,13 @@
       .cart-drawer { width:100%; max-width:100%; }
       #hero .corner { display:none; }
       .strip-div { display:none; }
+      .gal-grid { grid-template-columns:repeat(2,1fr); gap:12px; }
     }
     @media(max-width:480px) {
       #chatPanel { width:calc(100vw - 28px); height:480px; }
       #chatWrap  { bottom:16px; right:16px; }
       .hero-logo-wrap { width:180px; height:180px; }
+      .gal-grid { gap:10px; }
     }
   </style>
 </head>
@@ -541,6 +603,7 @@
     <li><a href="#hero">Home</a></li>
     <li><a href="#products">Products</a></li>
     <li><a href="#services">Services</a></li>
+    <li><a href="#gallery">Gallery</a></li>
     <li><a href="#why">About</a></li>
   </ul>
   <div class="nav-right">
@@ -707,6 +770,128 @@
   </div>
 </section>
 
+<!-- ══════════ GALLERY ══════════ -->
+<section id="gallery">
+  <div class="sec-head">
+    <div class="sec-kicker">Our Portfolio</div>
+    <h2 class="sec-h">Design Gallery</h2>
+    <div class="sec-orn"><span>🪷</span></div>
+    <p class="sec-p">Each design is a story — explore Divya's signature styles</p>
+  </div>
+
+  <div class="gal-filter">
+    <button class="gal-f-btn active" onclick="filterGal(this,'all')">All Designs</button>
+    <button class="gal-f-btn" onclick="filterGal(this,'bridal')">Bridal</button>
+    <button class="gal-f-btn" onclick="filterGal(this,'arabic')">Arabic</button>
+    <button class="gal-f-btn" onclick="filterGal(this,'traditional')">Traditional</button>
+    <button class="gal-f-btn" onclick="filterGal(this,'simple')">Simple</button>
+  </div>
+
+  <div class="gal-grid">
+
+    <div class="gal-item" data-cat="bridal">
+      <div class="gal-ph gp-bridal">
+        <!-- Replace inner div with: <img src="/static/your-photo.jpg" alt="Bridal design" /> -->
+        <div class="gal-ph-inner"><span>👰</span><p>Bridal Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Bridal</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Full Bridal — Both Hands</div>
+        <div class="gal-overlay-sub">Fingertips to elbow · Intricate patterns</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="arabic">
+      <div class="gal-ph gp-arabic">
+        <div class="gal-ph-inner"><span>🌿</span><p>Arabic Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Arabic</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Arabic Floral</div>
+        <div class="gal-overlay-sub">Bold florals · Open negative space</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="traditional">
+      <div class="gal-ph gp-trad">
+        <div class="gal-ph-inner"><span>🪷</span><p>Traditional Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Traditional</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Rajasthani Style</div>
+        <div class="gal-overlay-sub">Dense patterns · Rich detailing</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="bridal">
+      <div class="gal-ph gp-bridal">
+        <div class="gal-ph-inner"><span>💍</span><p>Bridal Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Bridal</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">3/4 Bridal — Both Hands</div>
+        <div class="gal-overlay-sub">Wrist to elbow · Bridal motifs</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="simple">
+      <div class="gal-ph gp-simple">
+        <div class="gal-ph-inner"><span>✨</span><p>Simple Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Simple</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Casual Occasion</div>
+        <div class="gal-overlay-sub">Elegant · Quick · Perfect for festivals</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="arabic">
+      <div class="gal-ph gp-arabic">
+        <div class="gal-ph-inner"><span>🍃</span><p>Arabic Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Arabic</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Arabic Vine Pattern</div>
+        <div class="gal-overlay-sub">Flowing vines · Modern Arabic style</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="traditional">
+      <div class="gal-ph gp-trad">
+        <div class="gal-ph-inner"><span>🌸</span><p>Traditional Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Traditional</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Festival Special</div>
+        <div class="gal-overlay-sub">Classic motifs · Diwali · Navratri</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="simple">
+      <div class="gal-ph gp-simple">
+        <div class="gal-ph-inner"><span>🌙</span><p>Simple Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Simple</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Basic Palm Design</div>
+        <div class="gal-overlay-sub">Minimal · Everyday · All occasions</div>
+      </div>
+    </div>
+
+    <div class="gal-item" data-cat="bridal">
+      <div class="gal-ph gp-bridal">
+        <div class="gal-ph-inner"><span>🦶</span><p>Bridal Design</p></div>
+      </div>
+      <span class="gal-cat-tag">Bridal</span>
+      <div class="gal-overlay">
+        <div class="gal-overlay-title">Full Bridal — Both Legs</div>
+        <div class="gal-overlay-sub">Toes to knee · Signature patterns</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <!-- ══════════ WHY US ══════════ -->
 <section id="why">
   <div class="sec-head">
@@ -747,6 +932,7 @@
     <li><a href="#hero">Home</a></li>
     <li><a href="#products">Products</a></li>
     <li><a href="#services">Services</a></li>
+    <li><a href="#gallery">Gallery</a></li>
     <li><a href="#why">About</a></li>
   </ul>
   <hr class="ft-hr" />
@@ -868,21 +1054,31 @@ function closeCart(){
   document.getElementById('cartDrawer').classList.remove('on');
   document.getElementById('overlay').classList.remove('on');
 }
+function openWA(url){
+  if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+    window.location.href=url;
+  } else {
+    window.open(url,'_blank','noopener,noreferrer');
+  }
+}
 function checkout(){
   if(!cart.length) return;
   const lines=cart.map(i=>`• ${i.name} ×${i.qty} = ₹${(i.price*i.qty).toLocaleString('en-IN')}`).join('\n');
   const msg=`Hi! I'd like to order from *Mehandi Tales By Divya* 🌿\n\n${lines}\n\n*Total: ₹${total().toLocaleString('en-IN')}*\n\nKindly confirm my order. Thank you!`;
-  const url=`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`;
-  const a=document.createElement('a');
-  a.href=url; a.target='_blank'; a.rel='noopener noreferrer';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  openWA(`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`);
 }
 function book(name,price){
   const msg=`Hi! I'd like to book *${name}* (₹${price.toLocaleString('en-IN')}) from *Mehandi Tales By Divya* 🌿\n\nCould you please help me schedule an appointment? Thank you!`;
-  const url=`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`;
-  const a=document.createElement('a');
-  a.href=url; a.target='_blank'; a.rel='noopener noreferrer';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  openWA(`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`);
+}
+
+/* ══════════ GALLERY FILTER ══════════ */
+function filterGal(btn,cat){
+  document.querySelectorAll('.gal-f-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.gal-item').forEach(item=>{
+    item.classList.toggle('gal-hidden', cat!=='all' && item.dataset.cat!==cat);
+  });
 }
 
 /* ══════════ AI CHAT ══════════ */
