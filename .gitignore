@@ -1,0 +1,13 @@
+.env
+*.db
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.idea/
+.vscode/
+*.egg-info/
+dist/
+build/
+# HuggingFace model cache (large files, re-downloaded on deploy)
+.cache/

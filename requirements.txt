@@ -1,0 +1,12 @@
+langgraph
+langchain
+langchain-community
+langchain-anthropic
+anthropic
+faiss-cpu
+sentence-transformers
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+aiofiles
