@@ -1707,6 +1707,8 @@ function openAccount(){
   document.getElementById('acctName').textContent  = u.displayName || 'My Account';
   document.getElementById('acctEmail').textContent = u.email || '';
   document.getElementById('acctModal').classList.add('on');
+  const acctEl=document.getElementById('acctLoyalty');
+  if(acctEl) acctEl.textContent=loyaltyBalance?`🌿 ${loyaltyBalance} pts`:'';
   loadOrders(u.uid);
 }
 function closeAccount(){ document.getElementById('acctModal').classList.remove('on'); }
@@ -2166,14 +2168,6 @@ async function adminCreateCoupon(){
     document.getElementById('newCouponValue').value='';
     loadAdminCoupons();
   }catch(e){ toast('Error creating coupon'); }
-}
-
-/* ══════════ ACCOUNT — show loyalty ══════════ */
-const _origOpenAccount = openAccount;
-function openAccount(){
-  _origOpenAccount();
-  const acctEl=document.getElementById('acctLoyalty');
-  if(acctEl&&loyaltyBalance) acctEl.textContent=`🌿 ${loyaltyBalance} pts`;
 }
 
 renderCart();
