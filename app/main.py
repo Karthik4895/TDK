@@ -1,3 +1,5 @@
+import hmac
+import hashlib
 import time
 import logging
 from contextlib import asynccontextmanager
@@ -5,10 +7,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+import razorpay
 from app.models import QueryRequest, QueryResponse, HealthResponse
 from app.graph import graph
 from app.memory import init_db, save_conversation, get_conversations, clear_conversations
-from app.config import APP_ENV
+from app.config import APP_ENV, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 
 logger = logging.getLogger("tdk.main")
 
@@ -86,6 +90,51 @@ async def ask(req: QueryRequest):
     save_conversation(req.user_id, req.query, result["draft"], result["score"], result["iteration"])
 
     return {"answer": result["draft"], "score": result["score"], "iterations": result["iteration"]}
+
+
+class OrderRequest(BaseModel):
+    amount: int        # in paise (INR × 100)
+    currency: str = "INR"
+    receipt: str = "order_receipt"
+
+class VerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@app.post("/create-order", tags=["payment"])
+async def create_order(req: OrderRequest):
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        raise HTTPException(status_code=503, detail="Payment not configured")
+    try:
+        client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        order = client.order.create({
+            "amount": req.amount,
+            "currency": req.currency,
+            "receipt": req.receipt,
+            "payment_capture": 1,
+        })
+        return {"order_id": order["id"], "key_id": RAZORPAY_KEY_ID, "amount": req.amount}
+    except Exception as exc:
+        logger.error("Razorpay order creation failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Could not create payment order")
+
+
+@app.post("/verify-payment", tags=["payment"])
+async def verify_payment(req: VerifyRequest):
+    if not RAZORPAY_KEY_SECRET:
+        raise HTTPException(status_code=503, detail="Payment not configured")
+    body = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        body.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, req.razorpay_signature):
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    logger.info("Payment verified: %s", req.razorpay_payment_id)
+    return {"success": True, "payment_id": req.razorpay_payment_id}
 
 
 @app.get("/history/{user_id}", tags=["chat"])

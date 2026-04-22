@@ -10,3 +10,4 @@ uvicorn[standard]
 pydantic
 python-dotenv
 aiofiles
+razorpay
