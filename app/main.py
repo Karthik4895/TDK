@@ -134,7 +134,7 @@ async def create_order(req: OrderRequest):
         return {"order_id": order["id"], "key_id": RAZORPAY_KEY_ID, "amount": req.amount}
     except Exception as exc:
         logger.error("Razorpay order creation failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Could not create payment order")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/verify-payment", tags=["payment"])
