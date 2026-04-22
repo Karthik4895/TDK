@@ -16,6 +16,14 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Mehandi Tales By Divya" />
   <meta name="twitter:description" content="Organic henna cones &amp; bridal mehendi services in Chennai." />
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#3A1F10" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Mehandi Tales" />
+  <link rel="apple-touch-icon" href="/static/icon-512.svg" />
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3JXTXSD0KH"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3JXTXSD0KH');</script>
@@ -986,6 +994,7 @@
       ♡ <span id="wlCount" style="display:none;background:#e53e3e;color:#fff;border-radius:50%;padding:0 5px;font-size:11px;font-weight:700"></span>
     </button>
     <button id="adminBtn" class="admin-nav-btn" onclick="openAdmin()">⚙ Admin</button>
+    <button id="pwaInstallBtn" onclick="triggerInstall()" style="display:none;align-items:center;gap:6px;padding:7px 14px;border-radius:50px;border:2px solid var(--gold);background:var(--gold-p);cursor:pointer;font-size:12px;font-weight:700;color:var(--dark);white-space:nowrap">⬇ Install App</button>
     <button class="cart-pill" onclick="toggleCart()">
       🛒 Cart <span id="cartCount" class="hidden">0</span>
     </button>
@@ -2735,6 +2744,34 @@ initWLButtons();
 updateProdRatings();
 resetAbandonTimer();
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&cart.length>0) resetAbandonTimer(); });
+
+/* ══════════ PWA SERVICE WORKER ══════════ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg=>{ console.log('SW registered', reg.scope); })
+      .catch(err=>{ console.warn('SW failed', err); });
+  });
+}
+
+/* ══════════ PWA INSTALL PROMPT ══════════ */
+let _installEvt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); _installEvt=e;
+  const btn=document.getElementById('pwaInstallBtn');
+  if(btn) btn.style.display='flex';
+});
+window.addEventListener('appinstalled', ()=>{
+  const btn=document.getElementById('pwaInstallBtn');
+  if(btn) btn.style.display='none';
+  _installEvt=null;
+  toast('App installed! Find it on your home screen 🌿');
+});
+function triggerInstall(){
+  if(!_installEvt) return;
+  _installEvt.prompt();
+  _installEvt.userChoice.then(()=>{ _installEvt=null; });
+}
 </script>
 
 <!-- Tawk.to Live Chat -->

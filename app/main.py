@@ -72,6 +72,15 @@ async def root():
     return FileResponse("app/static/index.html")
 
 
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    return FileResponse(
+        "app/static/sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 async def health():
     return {"status": "ok", "version": APP_VERSION, "environment": APP_ENV}

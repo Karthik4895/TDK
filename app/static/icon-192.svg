@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <!-- Background -->
+  <rect width="192" height="192" rx="38" fill="#3A1F10"/>
+  <!-- Outer gold ring -->
+  <circle cx="96" cy="96" r="80" fill="none" stroke="#D4A84A" stroke-width="3" opacity="0.5"/>
+  <!-- Henna mandala petals -->
+  <g transform="translate(96,96)">
+    <!-- 8 petals -->
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(0)  translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(45) translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(90) translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(135) translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(180) translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(225) translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(270) translate(0,-44)"/>
+    <ellipse rx="12" ry="30" fill="#D4A84A" opacity="0.9" transform="rotate(315) translate(0,-44)"/>
+    <!-- Inner circle -->
+    <circle r="22" fill="#BF8522"/>
+    <circle r="14" fill="#3A1F10"/>
+    <!-- Center dot -->
+    <circle r="5" fill="#D4A84A"/>
+    <!-- Small dots between petals -->
+    <circle cx="0" cy="-60" r="4" fill="#E8C070"/>
+    <circle cx="42" cy="-42" r="4" fill="#E8C070"/>
+    <circle cx="60" cy="0" r="4" fill="#E8C070"/>
+    <circle cx="42" cy="42" r="4" fill="#E8C070"/>
+    <circle cx="0" cy="60" r="4" fill="#E8C070"/>
+    <circle cx="-42" cy="42" r="4" fill="#E8C070"/>
+    <circle cx="-60" cy="0" r="4" fill="#E8C070"/>
+    <circle cx="-42" cy="-42" r="4" fill="#E8C070"/>
+  </g>
+</svg>
