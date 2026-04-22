@@ -107,6 +107,16 @@ class VerifyRequest(BaseModel):
     razorpay_signature: str
 
 
+@app.get("/payment-status", tags=["payment"])
+async def payment_status():
+    return {
+        "key_id_set": bool(RAZORPAY_KEY_ID),
+        "key_id_prefix": RAZORPAY_KEY_ID[:8] if RAZORPAY_KEY_ID else "NOT SET",
+        "secret_set": bool(RAZORPAY_KEY_SECRET),
+        "razorpay_pkg": _razorpay is not None,
+    }
+
+
 @app.post("/create-order", tags=["payment"])
 async def create_order(req: OrderRequest):
     if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
