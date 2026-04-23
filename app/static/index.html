@@ -955,6 +955,48 @@
     .abandon-popup{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--dark);color:var(--gold-l);padding:14px 24px;border-radius:16px;font-size:14px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;display:none;text-align:center;max-width:300px}
     .abandon-popup button{margin-top:10px;padding:8px 18px;border-radius:50px;border:none;background:var(--gold);color:var(--dark);font-weight:700;cursor:pointer;font-size:13px}
     .abandon-popup .ab-close{position:absolute;top:8px;right:12px;background:none;border:none;color:var(--gold-l);font-size:16px;cursor:pointer;margin:0;padding:0}
+    /* Loyalty tiers */
+    .tier-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:50px;font-size:12px;font-weight:700;margin-bottom:10px}
+    .tier-progress-wrap{background:#f0e8d8;border-radius:50px;height:6px;margin:6px 0 4px;overflow:hidden}
+    .tier-progress-bar{height:100%;border-radius:50px;background:var(--gold-g);transition:width .5s}
+    .tier-perks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .tier-perk{font-size:11px;padding:3px 8px;border-radius:50px;background:var(--gold-p);color:var(--dark);font-weight:500}
+    /* Package builder section */
+    #packages{padding:80px 6%;background:linear-gradient(180deg,var(--bg) 0%,#f5ede0 100%)}
+    .pkg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:32px 0 0}
+    @media(max-width:700px){.pkg-grid{grid-template-columns:1fr}}
+    .pkg-card{border:1.5px solid var(--border);border-radius:16px;padding:18px;background:var(--white);display:flex;justify-content:space-between;align-items:center;gap:12px;transition:.2s}
+    .pkg-card.active{border-color:var(--gold);background:var(--gold-p)}
+    .pkg-card-info{flex:1}
+    .pkg-card-name{font-size:14px;font-weight:700;color:var(--dark);margin-bottom:2px}
+    .pkg-card-price{font-size:12px;color:var(--muted)}
+    .pkg-qty{display:flex;align-items:center;gap:8px}
+    .pkg-qty-btn{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:.15s}
+    .pkg-qty-btn:hover{border-color:var(--gold);background:var(--gold-p)}
+    .pkg-qty-num{width:28px;text-align:center;font-size:15px;font-weight:700;color:var(--dark)}
+    .pkg-summary{background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:22px;margin-top:24px}
+    .pkg-summary-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:var(--dark)}
+    .pkg-summary-row.total{font-size:16px;font-weight:900;color:var(--gold);border-top:1px solid var(--border);margin-top:6px;padding-top:10px}
+    .pkg-discount-badge{font-size:11px;font-weight:700;background:#d1fae5;color:#059669;padding:2px 8px;border-radius:50px;margin-left:8px}
+    .pkg-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+    /* B2B section */
+    #b2b{padding:80px 6%;background:var(--dark)}
+    .b2b-inner{max-width:640px;margin:0 auto;color:var(--gold-l)}
+    .b2b-inner .sec-kicker{color:var(--gold-l);opacity:.8}
+    .b2b-inner h2{color:var(--gold-l);font-family:'Cinzel',serif;font-size:clamp(22px,4vw,34px);margin:8px 0 12px}
+    .b2b-inner p{color:rgba(212,168,74,.8);font-size:15px;margin-bottom:32px}
+    .b2b-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:600px){.b2b-grid{grid-template-columns:1fr}}
+    .b2b-inp{width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(212,168,74,.3);background:rgba(255,255,255,.07);color:var(--gold-l);font-size:14px;font-family:inherit;outline:none;transition:.2s}
+    .b2b-inp:focus{border-color:var(--gold);background:rgba(255,255,255,.1)}
+    .b2b-inp::placeholder{color:rgba(212,168,74,.4)}
+    .b2b-inp option{background:#3a1f10;color:#d4a84a}
+    .b2b-full{grid-column:1/-1}
+    .b2b-submit{width:100%;padding:14px;border:none;border-radius:50px;background:var(--gold-g);color:var(--dark);font-size:15px;font-weight:800;cursor:pointer;margin-top:6px;letter-spacing:.5px;transition:.2s}
+    .b2b-submit:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(191,133,34,.4)}
+    .b2b-success{text-align:center;padding:30px 0;display:none}
+    /* Package enquiry modal */
+    .pkg-modal-services{font-size:13px;color:#555;line-height:1.8;margin:8px 0}
     /* Gift card amount selector */
     .gc-amt-btn{padding:12px 8px;border:2px solid var(--border);border-radius:10px;background:var(--white);font-size:15px;font-weight:700;cursor:pointer;transition:.15s;color:var(--dark)}
     .gc-amt-btn.active{border-color:var(--gold);background:var(--gold-p);color:var(--dark)}
@@ -1005,6 +1047,7 @@
     <li><a href="#hero">Home</a></li>
     <li><a href="#products">Products</a></li>
     <li><a href="#services">Services</a></li>
+    <li><a href="#packages">Packages</a></li>
     <li><a href="#gallery">Gallery</a></li>
     <li><a href="#why">About</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -1193,6 +1236,108 @@
   </div>
 </section>
 
+<!-- ══════════ WEDDING PACKAGE BUILDER ══════════ -->
+<section id="packages">
+  <div class="sec-head">
+    <div class="sec-kicker">For Weddings &amp; Events</div>
+    <h2 class="sec-h">Build Your Package</h2>
+    <div class="sec-orn"><span>🌺</span></div>
+    <p class="sec-p">Mix &amp; match services for your wedding party — the more people, the bigger the discount</p>
+  </div>
+
+  <div class="pkg-grid">
+    <div class="pkg-card" id="pkgCard0">
+      <div class="pkg-card-info">
+        <div class="pkg-card-name">👰 Full Bridal — Both Hands</div>
+        <div class="pkg-card-price">₹3,500 / person</div>
+      </div>
+      <div class="pkg-qty">
+        <button class="pkg-qty-btn" onclick="changePkg(0,-1)">−</button>
+        <span class="pkg-qty-num" id="pkgQty0">0</span>
+        <button class="pkg-qty-btn" onclick="changePkg(0,1)">+</button>
+      </div>
+    </div>
+    <div class="pkg-card" id="pkgCard1">
+      <div class="pkg-card-info">
+        <div class="pkg-card-name">🦶 Full Bridal — Both Legs</div>
+        <div class="pkg-card-price">₹1,500 / person</div>
+      </div>
+      <div class="pkg-qty">
+        <button class="pkg-qty-btn" onclick="changePkg(1,-1)">−</button>
+        <span class="pkg-qty-num" id="pkgQty1">0</span>
+        <button class="pkg-qty-btn" onclick="changePkg(1,1)">+</button>
+      </div>
+    </div>
+    <div class="pkg-card" id="pkgCard2">
+      <div class="pkg-card-info">
+        <div class="pkg-card-name">💍 3/4 Bridal — Both Hands</div>
+        <div class="pkg-card-price">₹2,000 / person</div>
+      </div>
+      <div class="pkg-qty">
+        <button class="pkg-qty-btn" onclick="changePkg(2,-1)">−</button>
+        <span class="pkg-qty-num" id="pkgQty2">0</span>
+        <button class="pkg-qty-btn" onclick="changePkg(2,1)">+</button>
+      </div>
+    </div>
+    <div class="pkg-card" id="pkgCard3">
+      <div class="pkg-card-info">
+        <div class="pkg-card-name">🌸 Bridesmaid / Guest</div>
+        <div class="pkg-card-price">₹500 / person</div>
+      </div>
+      <div class="pkg-qty">
+        <button class="pkg-qty-btn" onclick="changePkg(3,-1)">−</button>
+        <span class="pkg-qty-num" id="pkgQty3">0</span>
+        <button class="pkg-qty-btn" onclick="changePkg(3,1)">+</button>
+      </div>
+    </div>
+    <div class="pkg-card" id="pkgCard4">
+      <div class="pkg-card-info">
+        <div class="pkg-card-name">👨‍👩‍👧 Family Group</div>
+        <div class="pkg-card-price">₹1,000 / person</div>
+      </div>
+      <div class="pkg-qty">
+        <button class="pkg-qty-btn" onclick="changePkg(4,-1)">−</button>
+        <span class="pkg-qty-num" id="pkgQty4">0</span>
+        <button class="pkg-qty-btn" onclick="changePkg(4,1)">+</button>
+      </div>
+    </div>
+    <div class="pkg-card" id="pkgCard5">
+      <div class="pkg-card-info">
+        <div class="pkg-card-name">🧒 Kids (below 12)</div>
+        <div class="pkg-card-price">₹300 / person</div>
+      </div>
+      <div class="pkg-qty">
+        <button class="pkg-qty-btn" onclick="changePkg(5,-1)">−</button>
+        <span class="pkg-qty-num" id="pkgQty5">0</span>
+        <button class="pkg-qty-btn" onclick="changePkg(5,1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pkg-summary" id="pkgSummary" style="display:none">
+    <div id="pkgSummaryRows"></div>
+    <div class="pkg-summary-row" style="margin-top:4px">
+      <span>Total people</span><span id="pkgTotalPeople">0</span>
+    </div>
+    <div class="pkg-summary-row total">
+      <span>Estimate <span id="pkgDiscBadge" class="pkg-discount-badge" style="display:none"></span></span>
+      <span id="pkgTotalAmt">₹0</span>
+    </div>
+    <div id="pkgDiscNote" style="font-size:12px;color:#059669;margin:4px 0 0;display:none"></div>
+    <div class="pkg-btns">
+      <button class="btn-wa" onclick="submitPkgWA()" style="border-radius:50px;padding:12px;font-size:14px">💬 WhatsApp Us</button>
+      <button class="confirm-btn" onclick="submitPkgEnquiry()" id="pkgEnquiryBtn" style="font-size:14px">📋 Send Enquiry</button>
+    </div>
+    <div id="pkgEnquirySuccess" style="display:none;margin-top:12px;text-align:center;padding:12px;background:#d1fae5;border-radius:10px;color:#059669;font-size:13px;font-weight:700">
+      ✅ Enquiry sent! We'll contact you within 24 hours.
+    </div>
+  </div>
+
+  <p style="text-align:center;margin-top:28px;font-size:13px;color:var(--muted)">
+    🏷 Group discount: <strong>5–9 people → 5% off &nbsp;·&nbsp; 10–19 people → 10% off &nbsp;·&nbsp; 20+ people → 15% off</strong>
+  </p>
+</section>
+
 <!-- ══════════ GALLERY ══════════ -->
 <section id="gallery">
   <div class="sec-head">
@@ -1297,6 +1442,42 @@
   </div>
 </section>
 
+<!-- ══════════ B2B / BULK ENQUIRY ══════════ -->
+<section id="b2b">
+  <div class="b2b-inner">
+    <div class="sec-kicker">For Businesses &amp; Corporates</div>
+    <h2>Bulk &amp; B2B Enquiry</h2>
+    <p>Wedding planners, event managers, corporates — partner with us for exclusive rates and priority booking</p>
+    <div id="b2bForm">
+      <div class="b2b-grid">
+        <input class="b2b-inp" id="b2bCompany" placeholder="Company / Brand Name" />
+        <input class="b2b-inp" id="b2bContact" placeholder="Contact Person" />
+        <input class="b2b-inp" id="b2bPhone" placeholder="Phone Number" type="tel" />
+        <input class="b2b-inp" id="b2bEmail" placeholder="Email Address" type="email" />
+        <select class="b2b-inp" id="b2bEvent">
+          <option value="" disabled selected>Event Type</option>
+          <option>Wedding</option>
+          <option>Corporate Event</option>
+          <option>Festival Celebration</option>
+          <option>Baby Shower / Engagement</option>
+          <option>Product Shoot / Influencer</option>
+          <option>Other</option>
+        </select>
+        <input class="b2b-inp" id="b2bDate" type="date" />
+        <input class="b2b-inp" id="b2bQty" placeholder="Approx. No. of People" type="number" min="1" />
+        <input class="b2b-inp" id="b2bLocation" placeholder="Event Location / City" />
+        <textarea class="b2b-inp b2b-full" id="b2bMessage" placeholder="Additional requirements, budget range, specific designs…" rows="3"></textarea>
+      </div>
+      <button class="b2b-submit" onclick="submitB2BEnquiry()">🤝 Submit B2B Enquiry</button>
+    </div>
+    <div class="b2b-success" id="b2bSuccess">
+      <div style="font-size:44px;margin-bottom:10px">🎉</div>
+      <h3 style="color:var(--gold-l);font-family:'Cinzel',serif;margin:0 0 8px">Enquiry Received!</h3>
+      <p style="color:rgba(212,168,74,.8);font-size:14px">Our team will reach out within 24 hours with a custom quote.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ══════════ WHY US ══════════ -->
 <section id="why">
   <div class="sec-head">
@@ -1396,6 +1577,8 @@
     <li><a href="#hero">Home</a></li>
     <li><a href="#products">Products</a></li>
     <li><a href="#services">Services</a></li>
+    <li><a href="#packages">Packages</a></li>
+    <li><a href="#b2b">B2B</a></li>
     <li><a href="#gallery">Gallery</a></li>
     <li><a href="#why">About</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -1613,6 +1796,8 @@
           <button class="auth-tab" onclick="adminTab(this,'adminCustomersPanel');loadAdminCustomers()">Customers</button>
           <button class="auth-tab" onclick="adminTab(this,'adminReturnsPanel');loadAdminReturns()">Returns</button>
           <button class="auth-tab" onclick="adminTab(this,'adminGiftCardsPanel');loadAdminGiftCards()">Gift Cards</button>
+          <button class="auth-tab" onclick="adminTab(this,'adminPackagesPanel');loadAdminPackages()">Packages</button>
+          <button class="auth-tab" onclick="adminTab(this,'adminB2BPanel');loadAdminB2B()">B2B</button>
         </div>
         <button onclick="adminExportCSV()" style="margin-left:10px;padding:6px 12px;border:1px solid var(--border);background:var(--white);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">⬇ CSV</button>
       </div>
@@ -1649,6 +1834,12 @@
       </div>
       <div id="adminGiftCardsPanel" class="admin-panel" style="max-height:55vh;overflow-y:auto">
         <div id="adminGiftCardsList"><div style="text-align:center;padding:20px;color:#aaa">Loading…</div></div>
+      </div>
+      <div id="adminPackagesPanel" class="admin-panel" style="max-height:55vh;overflow-y:auto">
+        <div id="adminPackagesList"><div style="text-align:center;padding:20px;color:#aaa">Loading…</div></div>
+      </div>
+      <div id="adminB2BPanel" class="admin-panel" style="max-height:55vh;overflow-y:auto">
+        <div id="adminB2BList"><div style="text-align:center;padding:20px;color:#aaa">Loading…</div></div>
       </div>
     </div>
   </div>
@@ -1688,6 +1879,19 @@
       </div>
       <div id="myGiftCardsSection" style="display:none;margin-bottom:14px">
         <div id="myGiftCardsList"><div class="orders-empty">Loading…</div></div>
+      </div>
+      <div id="loyaltyTierSection" style="display:none;margin-bottom:14px;padding:14px;border:1.5px solid var(--border);border-radius:14px;background:var(--gold-p)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span class="tier-badge" id="tierBadge" style="font-size:13px;padding:4px 12px;border-radius:50px;font-weight:800"></span>
+          <span style="font-size:11px;color:var(--muted)" id="tierNextLabel"></span>
+        </div>
+        <div style="background:#e5d5b5;border-radius:50px;height:7px;margin-bottom:8px;overflow:hidden">
+          <div id="tierProgressBar" style="height:100%;border-radius:50px;transition:width .4s;background:var(--gold-g);width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:11px;color:var(--muted)" id="tierPtsLabel"></span>
+          <span style="font-size:11px;color:var(--gold);font-weight:700" id="tierMultLabel"></span>
+        </div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h4 style="margin:0;font-size:14px;color:var(--dark)">My Orders</h4>
@@ -2077,6 +2281,7 @@ function openAccount(){
   const acctEl=document.getElementById('acctLoyalty');
   if(acctEl) acctEl.textContent=loyaltyBalance?`🌿 ${loyaltyBalance} pts`:'';
   loadOrders(u.uid);
+  loadTierInfo();
 }
 function closeAccount(){ document.getElementById('acctModal').classList.remove('on'); }
 const TL_STEPS=['confirmed','packed','shipped','delivered'];
@@ -3073,6 +3278,215 @@ if('serviceWorker' in navigator){
       .then(reg=>{ console.log('SW registered', reg.scope); })
       .catch(err=>{ console.warn('SW failed', err); });
   });
+}
+
+/* ══════════ WEDDING PACKAGE BUILDER ══════════ */
+const PKG_ITEMS=[
+  {name:'Full Bridal — Both Hands', price:3500},
+  {name:'Full Bridal — Both Legs',  price:1500},
+  {name:'3/4 Bridal — Both Hands',  price:2000},
+  {name:'Bridesmaid / Guest',        price:500},
+  {name:'Family Group',              price:1000},
+  {name:'Kids (below 12)',           price:300},
+];
+let pkgQtys=[0,0,0,0,0,0];
+
+function changePkg(i,delta){
+  pkgQtys[i]=Math.max(0,pkgQtys[i]+delta);
+  document.getElementById('pkgQty'+i).textContent=pkgQtys[i];
+  document.getElementById('pkgCard'+i).classList.toggle('active',pkgQtys[i]>0);
+  updatePkgSummary();
+}
+
+function updatePkgSummary(){
+  const totalPeople=pkgQtys.reduce((a,b)=>a+b,0);
+  const sumEl=document.getElementById('pkgSummary');
+  if(totalPeople===0){sumEl.style.display='none';return;}
+  sumEl.style.display='block';
+
+  const discPct=totalPeople>=20?15:totalPeople>=10?10:totalPeople>=5?5:0;
+  let base=0;
+  let rowsHtml='';
+  pkgQtys.forEach((q,i)=>{
+    if(!q) return;
+    const sub=PKG_ITEMS[i].price*q;
+    base+=sub;
+    rowsHtml+=`<div class="pkg-summary-row"><span>${PKG_ITEMS[i].name} × ${q}</span><span>₹${sub.toLocaleString('en-IN')}</span></div>`;
+  });
+  const disc=Math.round(base*discPct/100);
+  const total=base-disc;
+
+  document.getElementById('pkgSummaryRows').innerHTML=rowsHtml;
+  document.getElementById('pkgTotalPeople').textContent=totalPeople;
+  document.getElementById('pkgTotalAmt').textContent='₹'+total.toLocaleString('en-IN');
+
+  const badge=document.getElementById('pkgDiscBadge');
+  const note=document.getElementById('pkgDiscNote');
+  if(discPct){
+    badge.style.display='inline';badge.textContent=discPct+'% off';
+    note.style.display='block';note.textContent=`You save ₹${disc.toLocaleString('en-IN')} with group discount!`;
+  } else {
+    badge.style.display='none';note.style.display='none';
+  }
+  document.getElementById('pkgEnquirySuccess').style.display='none';
+}
+
+function submitPkgWA(){
+  const totalPeople=pkgQtys.reduce((a,b)=>a+b,0);
+  if(!totalPeople){toast('Please select at least one service.');return;}
+  let lines=pkgQtys.map((q,i)=>q?`${PKG_ITEMS[i].name} × ${q}`:'').filter(Boolean);
+  const discPct=totalPeople>=20?15:totalPeople>=10?10:totalPeople>=5?5:0;
+  let base=pkgQtys.reduce((s,q,i)=>s+q*PKG_ITEMS[i].price,0);
+  const total=base-Math.round(base*discPct/100);
+  const msg=`Hi! I'd like to enquire about a wedding/event package:\n\n${lines.join('\n')}\n\nTotal people: ${totalPeople}\nEstimate: ₹${total.toLocaleString('en-IN')}${discPct?` (${discPct}% group discount applied)`:''}\n\nPlease let me know your availability.`;
+  window.open(`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+async function submitPkgEnquiry(){
+  const totalPeople=pkgQtys.reduce((a,b)=>a+b,0);
+  if(!totalPeople){toast('Please select at least one service.');return;}
+  const user=window._auth&&window._auth.currentUser;
+  const items=pkgQtys.map((q,i)=>({name:PKG_ITEMS[i].name,price:PKG_ITEMS[i].price,qty:q})).filter(x=>x.qty>0);
+  const discPct=totalPeople>=20?15:totalPeople>=10?10:totalPeople>=5?5:0;
+  let base=pkgQtys.reduce((s,q,i)=>s+q*PKG_ITEMS[i].price,0);
+  const payload={
+    items,total_people:totalPeople,
+    base_amount:base,discount_pct:discPct,
+    final_amount:base-Math.round(base*discPct/100),
+    user_id:user?user.uid:'guest',
+    user_email:user?user.email:'',
+    user_name:user?(user.displayName||user.email):'Guest'
+  };
+  const btn=document.getElementById('pkgEnquiryBtn');
+  btn.disabled=true;btn.textContent='Sending…';
+  try{
+    const r=await fetch('/package-enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error();
+    document.getElementById('pkgEnquirySuccess').style.display='block';
+  }catch{toast('Failed to send enquiry. Please try WhatsApp.');}
+  finally{btn.disabled=false;btn.textContent='📋 Send Enquiry';}
+}
+
+/* ══════════ LOYALTY TIER DISPLAY ══════════ */
+async function loadTierInfo(){
+  const user=window._auth&&window._auth.currentUser;
+  if(!user) return;
+  try{
+    const r=await fetch('/loyalty/'+user.uid+'/tier');
+    if(!r.ok) return;
+    const d=await r.json();
+    const sec=document.getElementById('loyaltyTierSection');
+    sec.style.display='block';
+    const badge=document.getElementById('tierBadge');
+    badge.textContent=d.tier.icon+' '+d.tier.name;
+    badge.style.background=d.tier.color+'22';
+    badge.style.color=d.tier.color;
+    badge.style.border='1.5px solid '+d.tier.color+'66';
+    document.getElementById('acctLoyalty').textContent='🌿 '+d.points+' pts';
+    document.getElementById('tierPtsLabel').textContent=d.points+' points earned';
+    document.getElementById('tierMultLabel').textContent=d.tier.multiplier+'× earn rate';
+    if(d.next_tier){
+      const progress=Math.min(100,Math.round((d.points-d.tier.min)/(d.next_tier.min-d.tier.min)*100));
+      document.getElementById('tierProgressBar').style.width=progress+'%';
+      const needed=d.next_tier.min-d.points;
+      document.getElementById('tierNextLabel').textContent=needed+' pts to '+d.next_tier.name;
+    } else {
+      document.getElementById('tierProgressBar').style.width='100%';
+      document.getElementById('tierNextLabel').textContent='Max tier reached!';
+    }
+  }catch{}
+}
+
+/* ══════════ B2B ENQUIRY ══════════ */
+async function submitB2BEnquiry(){
+  const company=document.getElementById('b2bCompany').value.trim();
+  const contact=document.getElementById('b2bContact').value.trim();
+  const phone=document.getElementById('b2bPhone').value.trim();
+  const email=document.getElementById('b2bEmail').value.trim();
+  const event=document.getElementById('b2bEvent').value;
+  const date=document.getElementById('b2bDate').value;
+  const qty=document.getElementById('b2bQty').value;
+  const location=document.getElementById('b2bLocation').value.trim();
+  const message=document.getElementById('b2bMessage').value.trim();
+  if(!company||!contact||!phone||!email||!event){
+    toast('Please fill in all required fields.');return;
+  }
+  const btn=document.querySelector('#b2b .b2b-submit');
+  btn.disabled=true;btn.textContent='Sending…';
+  try{
+    const r=await fetch('/b2b-enquiry',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({company,contact,phone,email,event_type:event,event_date:date,quantity:qty,location,message})});
+    if(!r.ok) throw new Error();
+    document.getElementById('b2bForm').style.display='none';
+    document.getElementById('b2bSuccess').style.display='block';
+  }catch{toast('Failed to submit. Please try WhatsApp.');}
+  finally{btn.disabled=false;btn.textContent='🤝 Submit B2B Enquiry';}
+}
+
+/* ══════════ ADMIN — PACKAGE ENQUIRIES ══════════ */
+async function loadAdminPackages(){
+  const el=document.getElementById('adminPackagesList');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
+  try{
+    const r=await fetch('/admin/package-enquiries',{headers:{'x-admin-key':ADMIN_KEY}});
+    const data=await r.json();
+    if(!data.length){el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No enquiries yet</div>';return;}
+    el.innerHTML=data.map(e=>`
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <strong style="font-size:13px">${e.user_name||'Guest'}</strong>
+          <span style="font-size:11px;color:var(--muted)">${new Date(e.created_at).toLocaleDateString('en-IN')}</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${e.user_email||''}</div>
+        <div style="font-size:12px;margin-bottom:6px">${(e.items||[]).map(x=>`${x.name} × ${x.qty}`).join(' · ')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:var(--gold)">₹${(e.final_amount||0).toLocaleString('en-IN')} · ${e.total_people} people</span>
+          <select onchange="adminUpdateEnquiry('package-enquiries',${e.id},this.value)" style="font-size:11px;padding:4px 8px;border-radius:8px;border:1px solid var(--border)">
+            <option ${e.status==='pending'?'selected':''}>pending</option>
+            <option ${e.status==='contacted'?'selected':''}>contacted</option>
+            <option ${e.status==='confirmed'?'selected':''}>confirmed</option>
+            <option ${e.status==='closed'?'selected':''}>closed</option>
+          </select>
+        </div>
+      </div>`).join('');
+  }catch{el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Error loading data</div>';}
+}
+
+/* ══════════ ADMIN — B2B ENQUIRIES ══════════ */
+async function loadAdminB2B(){
+  const el=document.getElementById('adminB2BList');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
+  try{
+    const r=await fetch('/admin/b2b-enquiries',{headers:{'x-admin-key':ADMIN_KEY}});
+    const data=await r.json();
+    if(!data.length){el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No B2B enquiries yet</div>';return;}
+    el.innerHTML=data.map(e=>`
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <strong style="font-size:13px">${e.company||'—'}</strong>
+          <span style="font-size:11px;color:var(--muted)">${new Date(e.created_at).toLocaleDateString('en-IN')}</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${e.contact} · ${e.phone} · ${e.email}</div>
+        <div style="font-size:12px;margin-bottom:6px">${e.event_type||''} ${e.event_date?'· '+e.event_date:''} ${e.quantity?'· ~'+e.quantity+' people':''} ${e.location?'· '+e.location:''}</div>
+        ${e.message?`<div style="font-size:12px;color:#555;margin-bottom:8px;font-style:italic">"${e.message}"</div>`:''}
+        <div style="display:flex;justify-content:flex-end">
+          <select onchange="adminUpdateEnquiry('b2b-enquiries',${e.id},this.value)" style="font-size:11px;padding:4px 8px;border-radius:8px;border:1px solid var(--border)">
+            <option ${e.status==='pending'?'selected':''}>pending</option>
+            <option ${e.status==='contacted'?'selected':''}>contacted</option>
+            <option ${e.status==='quoted'?'selected':''}>quoted</option>
+            <option ${e.status==='confirmed'?'selected':''}>confirmed</option>
+            <option ${e.status==='closed'?'selected':''}>closed</option>
+          </select>
+        </div>
+      </div>`).join('');
+  }catch{el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Error loading data</div>';}
+}
+
+async function adminUpdateEnquiry(type,id,status){
+  try{
+    await fetch(`/admin/${type}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY},body:JSON.stringify({status})});
+    toast('Status updated');
+  }catch{toast('Failed to update status');}
 }
 
 /* ══════════ PWA INSTALL PROMPT ══════════ */

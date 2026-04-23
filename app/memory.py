@@ -147,6 +147,38 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_gift_cards_buyer ON gift_cards(buyer_user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_gift_cards_redeemed ON gift_cards(redeemed_by)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS package_enquiries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT DEFAULT '',
+                user_name TEXT DEFAULT '',
+                user_email TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
+                event_date TEXT DEFAULT '',
+                services TEXT NOT NULL,
+                total INTEGER DEFAULT 0,
+                discount INTEGER DEFAULT 0,
+                message TEXT DEFAULT '',
+                status TEXT DEFAULT 'new',
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS b2b_enquiries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_name TEXT NOT NULL,
+                contact_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                email TEXT DEFAULT '',
+                event_type TEXT DEFAULT '',
+                event_date TEXT DEFAULT '',
+                quantity INTEGER DEFAULT 0,
+                location TEXT DEFAULT '',
+                message TEXT DEFAULT '',
+                status TEXT DEFAULT 'new',
+                created_at TEXT NOT NULL
+            )
+        """)
         for alter in [
             "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'confirmed'",
             "ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''",
@@ -671,3 +703,88 @@ def redeem_gift_card(code: str, user_id: str, amount: int = None) -> dict:
         )
         conn.commit()
         return {"success": True, "amount_redeemed": amount, "new_balance": new_balance}
+
+
+# ── Loyalty tiers ──────────────────────────────────────────────────────────────
+
+TIERS = [
+    {"name": "Bronze",   "icon": "🥉", "min": 0,    "max": 499,   "multiplier": 1.0, "color": "#cd7f32"},
+    {"name": "Silver",   "icon": "🥈", "min": 500,  "max": 1499,  "multiplier": 1.2, "color": "#9ca3af"},
+    {"name": "Gold",     "icon": "🥇", "min": 1500, "max": 4999,  "multiplier": 1.5, "color": "#BF8522"},
+    {"name": "Platinum", "icon": "💎", "min": 5000, "max": 999999, "multiplier": 2.0, "color": "#6B3820"},
+]
+
+def get_tier(points: int) -> dict:
+    for t in reversed(TIERS):
+        if points >= t["min"]:
+            return t
+    return TIERS[0]
+
+
+# ── Package enquiries ──────────────────────────────────────────────────────────
+
+def save_package_enquiry(user_id: str, user_name: str, user_email: str, phone: str,
+                          event_date: str, services: list, total: int, discount: int,
+                          message: str = "") -> int:
+    with _get_connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO package_enquiries
+               (user_id, user_name, user_email, phone, event_date, services, total, discount, message, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, user_name, user_email, phone, event_date, json.dumps(services),
+             total, discount, message, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_all_package_enquiries(limit: int = 300) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM package_enquiries ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["services"] = json.loads(d.get("services", "[]"))
+            result.append(d)
+        return result
+
+
+def update_package_enquiry_status(enquiry_id: int, status: str):
+    with _get_connection() as conn:
+        conn.execute("UPDATE package_enquiries SET status=? WHERE id=?", (status, enquiry_id))
+        conn.commit()
+
+
+# ── B2B enquiries ──────────────────────────────────────────────────────────────
+
+def save_b2b_enquiry(company_name: str, contact_name: str, phone: str, email: str,
+                     event_type: str, event_date: str, quantity: int,
+                     location: str, message: str) -> int:
+    with _get_connection() as conn:
+        cur = conn.execute(
+            """INSERT INTO b2b_enquiries
+               (company_name, contact_name, phone, email, event_type, event_date,
+                quantity, location, message, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (company_name, contact_name, phone, email, event_type, event_date,
+             quantity, location, message, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_all_b2b_enquiries(limit: int = 300) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM b2b_enquiries ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def update_b2b_status(enquiry_id: int, status: str):
+    with _get_connection() as conn:
+        conn.execute("UPDATE b2b_enquiries SET status=? WHERE id=?", (status, enquiry_id))
+        conn.commit()
+

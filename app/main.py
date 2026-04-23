@@ -28,6 +28,9 @@ from app.memory import (
     get_analytics, get_customers,
     get_site_config, set_site_config,
     add_product_qa, answer_product_qa, get_product_qa,
+    get_tier,
+    save_package_enquiry, get_all_package_enquiries, update_package_enquiry_status,
+    save_b2b_enquiry, get_all_b2b_enquiries, update_b2b_status,
     create_gift_card, get_gift_cards_for_user, get_all_gift_cards, get_gift_card_by_code, redeem_gift_card,
 )
 from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL
@@ -646,6 +649,101 @@ async def contact_form(req: ContactRequest):
     return {"sent": True}
 
 
+# ── Loyalty tier ───────────────────────────────────────────────────────────────
+
+@app.get("/loyalty/{user_id}/tier", tags=["loyalty"])
+async def fetch_loyalty_tier(user_id: str):
+    pts = get_loyalty_points(user_id.strip())
+    tier = get_tier(pts)
+    return {"points": pts, "tier": tier}
+
+
+# ── Package Enquiries ───────────────────────────────────────────────────────────
+
+class PackageEnquiryRequest(BaseModel):
+    user_id: str = ""
+    user_name: str = ""
+    user_email: str = ""
+    phone: str = ""
+    event_date: str = ""
+    services: list
+    total: int
+    discount: int = 0
+    message: str = ""
+
+
+@app.post("/package-enquiry", tags=["packages"])
+async def submit_package_enquiry(req: PackageEnquiryRequest):
+    if not req.services:
+        raise HTTPException(status_code=422, detail="No services selected")
+    if not req.phone.strip():
+        raise HTTPException(status_code=422, detail="Phone number required")
+    eid = save_package_enquiry(
+        req.user_id, req.user_name, req.user_email, req.phone.strip(),
+        req.event_date, req.services, req.total, req.discount, req.message,
+    )
+    await _send_package_email(req)
+    return {"submitted": True, "id": eid}
+
+
+@app.get("/admin/package-enquiries", tags=["admin"])
+async def admin_package_enquiries(admin_email: str = ""):
+    _check_admin(admin_email)
+    return get_all_package_enquiries()
+
+
+class EnquiryStatusReq(BaseModel):
+    status: str
+    admin_email: str = ""
+
+
+@app.put("/admin/package-enquiries/{eid}", tags=["admin"])
+async def update_pkg_status(eid: int, req: EnquiryStatusReq):
+    _check_admin(req.admin_email)
+    update_package_enquiry_status(eid, req.status)
+    return {"updated": True}
+
+
+# ── B2B Enquiries ───────────────────────────────────────────────────────────────
+
+class B2BEnquiryRequest(BaseModel):
+    company_name: str
+    contact_name: str
+    phone: str
+    email: str = ""
+    event_type: str = ""
+    event_date: str = ""
+    quantity: int = 0
+    location: str = ""
+    message: str = ""
+
+
+@app.post("/b2b-enquiry", tags=["b2b"])
+async def submit_b2b_enquiry(req: B2BEnquiryRequest):
+    if not req.company_name.strip() or not req.phone.strip():
+        raise HTTPException(status_code=422, detail="Company name and phone required")
+    eid = save_b2b_enquiry(
+        req.company_name.strip(), req.contact_name.strip(), req.phone.strip(),
+        req.email.strip(), req.event_type, req.event_date,
+        req.quantity, req.location.strip(), req.message.strip(),
+    )
+    await _send_b2b_email(req)
+    return {"submitted": True, "id": eid}
+
+
+@app.get("/admin/b2b-enquiries", tags=["admin"])
+async def admin_b2b_enquiries(admin_email: str = ""):
+    _check_admin(admin_email)
+    return get_all_b2b_enquiries()
+
+
+@app.put("/admin/b2b-enquiries/{eid}", tags=["admin"])
+async def update_b2b_enquiry_status(eid: int, req: EnquiryStatusReq):
+    _check_admin(req.admin_email)
+    update_b2b_status(eid, req.status)
+    return {"updated": True}
+
+
 # ── Email helper ───────────────────────────────────────────────────────────────
 
 async def _send_order_email(to_email: str, name: str, items: list, total: int, payment_id: str, address: str):
@@ -739,6 +837,80 @@ async def _send_status_email(to_email: str, name: str, status: str, payment_id: 
             )
     except Exception as exc:
         logger.warning("Status email failed: %s", exc)
+
+
+async def _send_package_email(req):
+    if not RESEND_API_KEY:
+        return
+    try:
+        rows = "".join(
+            f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee'>{s['name']}</td>"
+            f"<td style='padding:6px 10px;border-bottom:1px solid #eee;text-align:center'>×{s['qty']}</td>"
+            f"<td style='padding:6px 10px;border-bottom:1px solid #eee;text-align:right'>₹{s['price']*s['qty']:,}</td></tr>"
+            for s in req.services
+        )
+        html = f"""
+        <div style="font-family:Georgia,serif;max-width:520px;margin:auto;color:#3a1f10">
+          <div style="background:#3a1f10;padding:20px;text-align:center">
+            <h2 style="color:#d4a84a;margin:0">💍 New Wedding Package Enquiry</h2>
+          </div>
+          <div style="padding:24px;background:#fffdf8">
+            <p><strong>Name:</strong> {req.user_name or '—'}</p>
+            <p><strong>Phone:</strong> {req.phone}</p>
+            <p><strong>Email:</strong> {req.user_email or '—'}</p>
+            <p><strong>Event Date:</strong> {req.event_date or '—'}</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0">{rows}
+              <tr><td colspan="2" style="padding:10px;font-weight:700">Package Total</td>
+              <td style="padding:10px;text-align:right;font-weight:700;color:#bf8522">₹{req.total:,}</td></tr>
+              {f'<tr><td colspan="2" style="padding:4px 10px;color:#888">Discount</td><td style="padding:4px 10px;text-align:right;color:#059669">-₹{req.discount:,}</td></tr>' if req.discount else ''}
+            </table>
+            {f'<p><strong>Message:</strong> {req.message}</p>' if req.message else ''}
+          </div>
+        </div>"""
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={"from": "Mehandi Tales <onboarding@resend.dev>", "to": [ADMIN_EMAIL],
+                      "subject": f"💍 Wedding Package Enquiry — {req.user_name or req.phone}", "html": html},
+                timeout=10,
+            )
+    except Exception as exc:
+        logger.warning("Package email failed: %s", exc)
+
+
+async def _send_b2b_email(req):
+    if not RESEND_API_KEY:
+        return
+    try:
+        html = f"""
+        <div style="font-family:Georgia,serif;max-width:520px;margin:auto;color:#3a1f10">
+          <div style="background:#3a1f10;padding:20px;text-align:center">
+            <h2 style="color:#d4a84a;margin:0">🏢 New B2B Enquiry</h2>
+          </div>
+          <div style="padding:24px;background:#fffdf8">
+            <p><strong>Company:</strong> {req.company_name}</p>
+            <p><strong>Contact:</strong> {req.contact_name}</p>
+            <p><strong>Phone:</strong> {req.phone}</p>
+            <p><strong>Email:</strong> {req.email or '—'}</p>
+            <p><strong>Event Type:</strong> {req.event_type or '—'}</p>
+            <p><strong>Event Date:</strong> {req.event_date or '—'}</p>
+            <p><strong>Quantity:</strong> {req.quantity} persons</p>
+            <p><strong>Location:</strong> {req.location or '—'}</p>
+            {f'<hr style="border:none;border-top:1px solid #eee;margin:16px 0"><p style="white-space:pre-wrap">{req.message}</p>' if req.message else ''}
+          </div>
+        </div>"""
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={"from": "Mehandi Tales <onboarding@resend.dev>", "to": [ADMIN_EMAIL],
+                      "reply_to": req.email or ADMIN_EMAIL,
+                      "subject": f"🏢 B2B Enquiry — {req.company_name}", "html": html},
+                timeout=10,
+            )
+    except Exception as exc:
+        logger.warning("B2B email failed: %s", exc)
 
 
 async def _send_contact_email(name: str, email: str, message: str):
