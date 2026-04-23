@@ -1,3 +1,4 @@
+import base64
 import csv
 import hmac
 import hashlib
@@ -7,10 +8,10 @@ import time
 import logging
 import httpx
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from app.models import QueryRequest, QueryResponse, HealthResponse
 from app.graph import graph
@@ -33,7 +34,7 @@ from app.memory import (
     save_b2b_enquiry, get_all_b2b_enquiries, update_b2b_status,
     create_gift_card, get_gift_cards_for_user, get_all_gift_cards, get_gift_card_by_code, redeem_gift_card,
 )
-from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL
+from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL, ADMIN_SECRET, FIREBASE_API_KEY
 
 try:
     import razorpay as _razorpay
@@ -43,6 +44,59 @@ except ImportError:
 logger = logging.getLogger("tdk.main")
 
 APP_VERSION = "1.0.0"
+
+
+# ── Admin auth ─────────────────────────────────────────────────────────────────
+
+async def _verify_firebase_id_token(id_token: str) -> dict | None:
+    """Call Firebase Auth REST API to verify an ID token and return the user record."""
+    if not FIREBASE_API_KEY:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={FIREBASE_API_KEY}",
+                json={"idToken": id_token},
+            )
+            if resp.status_code != 200:
+                return None
+            users = resp.json().get("users", [])
+            return users[0] if users else None
+    except Exception:
+        return None
+
+
+def _make_admin_token() -> str:
+    """Create a signed, time-limited admin session token (8 h)."""
+    exp = int(time.time()) + 8 * 3600
+    payload = f"{ADMIN_EMAIL}|{exp}"
+    sig = hmac.new(ADMIN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return base64.b64encode(f"{payload}|{sig}".encode()).decode()
+
+
+def _verify_admin_token(token: str) -> bool:
+    """Verify an admin session token.  Returns False if expired or tampered."""
+    if not ADMIN_SECRET or not token:
+        return False
+    try:
+        decoded = base64.b64decode(token.encode()).decode()
+        email, exp_str, sig = decoded.rsplit("|", 2)
+        if email != ADMIN_EMAIL:
+            return False
+        if int(exp_str) < int(time.time()):
+            return False
+        expected = hmac.new(
+            ADMIN_SECRET.encode(), f"{email}|{exp_str}".encode(), hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(expected, sig)
+    except Exception:
+        return False
+
+
+def _require_admin(x_admin_token: str = Header(default="")):
+    """FastAPI dependency: reject requests that don't carry a valid admin token."""
+    if not _verify_admin_token(x_admin_token):
+        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 @asynccontextmanager
@@ -99,6 +153,22 @@ async def apple_touch_icon():
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 async def health():
     return {"status": "ok", "version": APP_VERSION, "environment": APP_ENV}
+
+
+@app.get("/config", include_in_schema=False)
+async def frontend_config():
+    """Serve Firebase and public config to the frontend from environment variables."""
+    return JSONResponse({
+        "firebase": {
+            "apiKey":            os.getenv("FIREBASE_API_KEY", ""),
+            "authDomain":        os.getenv("FIREBASE_AUTH_DOMAIN", ""),
+            "projectId":         os.getenv("FIREBASE_PROJECT_ID", ""),
+            "storageBucket":     os.getenv("FIREBASE_STORAGE_BUCKET", ""),
+            "messagingSenderId": os.getenv("FIREBASE_MSG_SENDER_ID", ""),
+            "appId":             os.getenv("FIREBASE_APP_ID", ""),
+        },
+        "razorpayKeyId": os.getenv("RAZORPAY_KEY_ID", ""),
+    })
 
 
 @app.post("/ask", response_model=QueryResponse, tags=["chat"])
@@ -161,8 +231,8 @@ async def payment_status():
 
 @app.post("/create-order", tags=["payment"])
 async def create_order(req: OrderRequest):
-    key_id = os.getenv("RAZORPAY_KEY_ID", "RAZORPAY_KEY_ID_REMOVED")
-    secret  = os.getenv("RAZORPAY_KEY_SECRET", "RAZORPAY_SECRET_REMOVED")
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    secret  = os.getenv("RAZORPAY_KEY_SECRET", "")
     if not key_id or not secret:
         raise HTTPException(status_code=503, detail="Payment not configured")
     if _razorpay is None:
@@ -183,7 +253,7 @@ async def create_order(req: OrderRequest):
 
 @app.post("/verify-payment", tags=["payment"])
 async def verify_payment(req: VerifyRequest):
-    secret = os.getenv("RAZORPAY_KEY_SECRET", "RAZORPAY_SECRET_REMOVED")
+    secret = os.getenv("RAZORPAY_KEY_SECRET", "")
     if not secret:
         raise HTTPException(status_code=503, detail="Payment not configured")
     body = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
@@ -296,37 +366,49 @@ async def cod_order(req: CODOrderRequest):
     return {"saved": True, "payment_id": payment_id, "loyalty_earned": earned}
 
 
+class OrderStatusRequest(BaseModel):
+    status: str
+
+
 @app.put("/orders/{order_id}/status", tags=["orders"])
-async def set_order_status(order_id: int, req: dict):
-    if req.get("admin_email") != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    status = req.get("status", "")
-    if status not in ("confirmed", "packed", "shipped", "delivered"):
+async def set_order_status(
+    order_id: int,
+    req: OrderStatusRequest,
+    _: None = Depends(_require_admin),
+):
+    if req.status not in ("confirmed", "packed", "shipped", "delivered"):
         raise HTTPException(status_code=422, detail="Invalid status")
-    order = update_order_status(order_id, status)
-    if status in ("packed", "shipped", "delivered") and order.get("user_email"):
+    order = update_order_status(order_id, req.status)
+    if req.status in ("packed", "shipped", "delivered") and order.get("user_email"):
         await _send_status_email(
-            order["user_email"], order.get("user_name", ""), status, order.get("payment_id", "")
+            order["user_email"], order.get("user_name", ""), req.status, order.get("payment_id", "")
         )
     return {"updated": True}
 
 
 # ── Admin ──────────────────────────────────────────────────────────────────────
 
-def _check_admin(email: str):
-    if email != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Forbidden")
+@app.post("/admin/session", tags=["admin"])
+async def admin_create_session(authorization: str = Header(default="")):
+    """Exchange a valid Firebase ID token for a signed 8-hour admin session token."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Firebase ID token")
+    id_token = authorization[7:]
+    user_info = await _verify_firebase_id_token(id_token)
+    if not user_info or user_info.get("email") != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Not authorised as admin")
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin secret not configured")
+    return {"token": _make_admin_token()}
 
 
 @app.get("/admin/orders", tags=["admin"])
-async def admin_orders(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_orders(_: None = Depends(_require_admin)):
     return get_all_orders()
 
 
 @app.get("/admin/coupons", tags=["admin"])
-async def admin_coupons(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_coupons(_: None = Depends(_require_admin)):
     return list_coupons()
 
 
@@ -335,12 +417,10 @@ class CouponCreateRequest(BaseModel):
     discount_type: str
     discount_value: int
     max_usage: int = 0
-    admin_email: str = ""
 
 
 @app.post("/admin/coupons", tags=["admin"])
-async def admin_create_coupon(req: CouponCreateRequest):
-    _check_admin(req.admin_email)
+async def admin_create_coupon(req: CouponCreateRequest, _: None = Depends(_require_admin)):
     if req.discount_type not in ("percent", "flat"):
         raise HTTPException(status_code=422, detail="discount_type must be 'percent' or 'flat'")
     create_coupon(req.code, req.discount_type, req.discount_value, req.max_usage)
@@ -348,20 +428,17 @@ async def admin_create_coupon(req: CouponCreateRequest):
 
 
 @app.get("/admin/analytics", tags=["admin"])
-async def admin_analytics(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_analytics(_: None = Depends(_require_admin)):
     return get_analytics()
 
 
 @app.get("/admin/customers", tags=["admin"])
-async def admin_customers(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_customers(_: None = Depends(_require_admin)):
     return get_customers()
 
 
 @app.get("/admin/export/orders", tags=["admin"])
-async def admin_export_orders(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_export_orders(_: None = Depends(_require_admin)):
     orders = get_all_orders(limit=5000)
     output = io.StringIO()
     writer = csv.writer(output)
@@ -383,19 +460,16 @@ async def admin_export_orders(admin_email: str = ""):
 
 
 @app.get("/admin/returns", tags=["admin"])
-async def admin_returns(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_returns(_: None = Depends(_require_admin)):
     return get_all_returns()
 
 
 class ReturnStatusRequest(BaseModel):
     status: str
-    admin_email: str = ""
 
 
 @app.put("/admin/returns/{return_id}", tags=["admin"])
-async def admin_update_return(return_id: int, req: ReturnStatusRequest):
-    _check_admin(req.admin_email)
+async def admin_update_return(return_id: int, req: ReturnStatusRequest, _: None = Depends(_require_admin)):
     if req.status not in ("pending", "approved", "rejected", "completed"):
         raise HTTPException(status_code=422, detail="Invalid status")
     update_return_status(return_id, req.status)
@@ -405,18 +479,15 @@ async def admin_update_return(return_id: int, req: ReturnStatusRequest):
 class SiteConfigRequest(BaseModel):
     key: str
     value: str
-    admin_email: str = ""
 
 
 @app.get("/admin/config", tags=["admin"])
-async def admin_get_config(key: str, admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_get_config(key: str, _: None = Depends(_require_admin)):
     return {"key": key, "value": get_site_config(key)}
 
 
 @app.post("/admin/config", tags=["admin"])
-async def admin_set_config(req: SiteConfigRequest):
-    _check_admin(req.admin_email)
+async def admin_set_config(req: SiteConfigRequest, _: None = Depends(_require_admin)):
     set_site_config(req.key, req.value)
     return {"saved": True}
 
@@ -627,9 +698,7 @@ async def redeem_gift_card_endpoint(req: dict):
 
 
 @app.get("/admin/gift-cards", tags=["admin"])
-async def admin_gift_cards(admin_email: str = ""):
-    """Get all gift cards (admin only)"""
-    _check_admin(admin_email)
+async def admin_gift_cards(_: None = Depends(_require_admin)):
     return get_all_gift_cards()
 
 
@@ -687,19 +756,16 @@ async def submit_package_enquiry(req: PackageEnquiryRequest):
 
 
 @app.get("/admin/package-enquiries", tags=["admin"])
-async def admin_package_enquiries(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_package_enquiries(_: None = Depends(_require_admin)):
     return get_all_package_enquiries()
 
 
 class EnquiryStatusReq(BaseModel):
     status: str
-    admin_email: str = ""
 
 
 @app.put("/admin/package-enquiries/{eid}", tags=["admin"])
-async def update_pkg_status(eid: int, req: EnquiryStatusReq):
-    _check_admin(req.admin_email)
+async def update_pkg_status(eid: int, req: EnquiryStatusReq, _: None = Depends(_require_admin)):
     update_package_enquiry_status(eid, req.status)
     return {"updated": True}
 
@@ -707,23 +773,24 @@ async def update_pkg_status(eid: int, req: EnquiryStatusReq):
 # ── B2B Enquiries ───────────────────────────────────────────────────────────────
 
 class B2BEnquiryRequest(BaseModel):
-    company_name: str
-    contact_name: str
+    # Field names match what the frontend sends
+    company: str
+    contact: str
     phone: str
     email: str = ""
     event_type: str = ""
     event_date: str = ""
-    quantity: int = 0
+    quantity: str = ""
     location: str = ""
     message: str = ""
 
 
 @app.post("/b2b-enquiry", tags=["b2b"])
 async def submit_b2b_enquiry(req: B2BEnquiryRequest):
-    if not req.company_name.strip() or not req.phone.strip():
+    if not req.company.strip() or not req.phone.strip():
         raise HTTPException(status_code=422, detail="Company name and phone required")
     eid = save_b2b_enquiry(
-        req.company_name.strip(), req.contact_name.strip(), req.phone.strip(),
+        req.company.strip(), req.contact.strip(), req.phone.strip(),
         req.email.strip(), req.event_type, req.event_date,
         req.quantity, req.location.strip(), req.message.strip(),
     )
@@ -732,14 +799,12 @@ async def submit_b2b_enquiry(req: B2BEnquiryRequest):
 
 
 @app.get("/admin/b2b-enquiries", tags=["admin"])
-async def admin_b2b_enquiries(admin_email: str = ""):
-    _check_admin(admin_email)
+async def admin_b2b_enquiries(_: None = Depends(_require_admin)):
     return get_all_b2b_enquiries()
 
 
 @app.put("/admin/b2b-enquiries/{eid}", tags=["admin"])
-async def update_b2b_enquiry_status(eid: int, req: EnquiryStatusReq):
-    _check_admin(req.admin_email)
+async def update_b2b_enquiry_status(eid: int, req: EnquiryStatusReq, _: None = Depends(_require_admin)):
     update_b2b_status(eid, req.status)
     return {"updated": True}
 

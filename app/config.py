@@ -4,17 +4,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-APP_ENV = os.getenv("APP_ENV", "development")
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-MAX_ITERATIONS = int(os.getenv("MAX_ITERATIONS", "3"))
-SCORE_THRESHOLD = int(os.getenv("SCORE_THRESHOLD", "8"))
-DB_PATH = os.getenv("DB_PATH", "tdk.db")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
+APP_ENV             = os.getenv("APP_ENV", "development")
+LOG_LEVEL           = os.getenv("LOG_LEVEL", "INFO")
+MAX_ITERATIONS      = int(os.getenv("MAX_ITERATIONS", "3"))
+SCORE_THRESHOLD     = int(os.getenv("SCORE_THRESHOLD", "8"))
+DB_PATH             = os.getenv("DB_PATH", "tdk.db")
+CLAUDE_MODEL        = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 RAZORPAY_KEY_ID     = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 RESEND_API_KEY      = os.getenv("RESEND_API_KEY", "")
 ADMIN_EMAIL         = os.getenv("ADMIN_EMAIL", "mehanditalesbydivya@gmail.com")
+# Admin session signing key — generate once, store in Railway Variables
+ADMIN_SECRET        = os.getenv("ADMIN_SECRET", "")
+# Firebase Web API key — used to verify Firebase ID tokens on the backend
+FIREBASE_API_KEY    = os.getenv("FIREBASE_API_KEY", "")
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),

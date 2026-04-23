@@ -30,14 +30,23 @@
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3JXTXSD0KH');</script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- Firebase config -->
+  <!-- Firebase + Razorpay config loaded from server env vars at runtime -->
   <script>
-    window.FB_API_KEY        = 'AIzaSyD1uDMV2Z6N1WGQmVBiHXh2og8JQKpON3I';
-    window.FB_AUTH_DOMAIN    = 'mehandi-tales-by-divya.firebaseapp.com';
-    window.FB_PROJECT_ID     = 'mehandi-tales-by-divya';
-    window.FB_STORAGE_BUCKET = 'mehandi-tales-by-divya.firebasestorage.app';
-    window.FB_MSG_SENDER_ID  = '463362846117';
-    window.FB_APP_ID         = '1:463362846117:web:80667f33eb8788b2100c4c';
+    (async () => {
+      try {
+        const cfg = await fetch('/config').then(r => r.json());
+        const fb = cfg.firebase || {};
+        window.FB_API_KEY        = fb.apiKey            || '';
+        window.FB_AUTH_DOMAIN    = fb.authDomain         || '';
+        window.FB_PROJECT_ID     = fb.projectId          || '';
+        window.FB_STORAGE_BUCKET = fb.storageBucket      || '';
+        window.FB_MSG_SENDER_ID  = fb.messagingSenderId  || '';
+        window.FB_APP_ID         = fb.appId              || '';
+        window.RAZORPAY_KEY_ID   = cfg.razorpayKeyId     || '';
+      } catch(e) { console.error('Failed to load app config', e); }
+      window._configLoaded = true;
+      document.dispatchEvent(new Event('app-config-ready'));
+    })();
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script type="module">
@@ -48,6 +57,12 @@
              GoogleAuthProvider, OAuthProvider, signInWithPopup,
              RecaptchaVerifier, signInWithPhoneNumber }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    // Wait until /config has been fetched before initialising Firebase
+    await new Promise(resolve => {
+      if (window._configLoaded) { resolve(); return; }
+      document.addEventListener('app-config-ready', resolve, { once: true });
+    });
 
     const firebaseConfig = {
       apiKey:            window.FB_API_KEY,
@@ -3029,7 +3044,8 @@ async function loadAdminOrders(){
   const el=document.getElementById('adminOrdersList');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">Loading…</div>';
   try{
-    const res=await fetch(`/admin/orders?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const res=await adminFetch('/admin/orders');
+    if(!res) return;
     const orders=await res.json();
     const rev=orders.reduce((s,o)=>s+o.total,0);
     document.getElementById('adminRevenue').textContent='₹'+rev.toLocaleString('en-IN');
@@ -3059,14 +3075,15 @@ async function loadAdminOrders(){
 }
 async function adminUpdateStatus(orderId,status){
   try{
-    await fetch(`/orders/${orderId}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,admin_email:window._currentUser.email})});
-    toast('Status updated to '+status);
+    const r=await adminFetch(`/orders/${orderId}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    if(r&&r.ok) toast('Status updated to '+status);
   }catch(e){ toast('Error updating status'); }
 }
 async function loadAdminCoupons(){
   const el=document.getElementById('adminCouponsList');
   try{
-    const res=await fetch(`/admin/coupons?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const res=await adminFetch('/admin/coupons');
+    if(!res) return;
     const coupons=await res.json();
     document.getElementById('adminCouponCount').textContent=coupons.filter(c=>c.active).length;
     if(!coupons.length){ el.innerHTML='<div style="color:#aaa;padding:10px;font-size:13px">No coupons yet</div>'; return; }
@@ -3083,7 +3100,7 @@ async function adminCreateCoupon(){
   const maxUse=parseInt(document.getElementById('newCouponMax').value)||0;
   if(!code||!value){ toast('Please fill code and value'); return; }
   try{
-    await fetch('/admin/coupons',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,discount_type:type,discount_value:value,max_usage:maxUse,admin_email:window._currentUser.email})});
+    await adminFetch('/admin/coupons',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,discount_type:type,discount_value:value,max_usage:maxUse})});
     toast(`Coupon ${code} created! 🎉`);
     document.getElementById('newCouponCode').value='';
     document.getElementById('newCouponValue').value='';
@@ -3097,7 +3114,8 @@ async function loadAdminAnalytics(){
   const el=document.getElementById('adminAnalyticsContent');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
   try{
-    const res=await fetch(`/admin/analytics?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const res=await adminFetch('/admin/analytics');
+    if(!res) return;
     const d=await res.json();
     el.innerHTML=`
       <div class="analytics-grid">
@@ -3109,18 +3127,14 @@ async function loadAdminAnalytics(){
       <div class="chart-wrap"><canvas id="prodChart" height="140"></canvas></div>`;
     if(_revenueChart) _revenueChart.destroy();
     if(_prodChart) _prodChart.destroy();
-    const days=d.daily_revenue.map(r=>r.day);
-    const revs=d.daily_revenue.map(r=>r.rev);
     _revenueChart=new Chart(document.getElementById('revenueChart'),{
       type:'line',
-      data:{labels:days,datasets:[{label:'Revenue (₹)',data:revs,borderColor:'#BF8522',backgroundColor:'rgba(191,133,34,.1)',tension:.3,fill:true,pointRadius:3}]},
+      data:{labels:d.daily_revenue.map(r=>r.day),datasets:[{label:'Revenue (₹)',data:d.daily_revenue.map(r=>r.rev),borderColor:'#BF8522',backgroundColor:'rgba(191,133,34,.1)',tension:.3,fill:true,pointRadius:3}]},
       options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'₹'+v.toLocaleString('en-IN')}}}}
     });
-    const topNames=d.top_products.map(p=>p.name);
-    const topQtys=d.top_products.map(p=>p.qty);
     _prodChart=new Chart(document.getElementById('prodChart'),{
       type:'bar',
-      data:{labels:topNames,datasets:[{label:'Units Sold',data:topQtys,backgroundColor:'rgba(191,133,34,.7)',borderColor:'#BF8522',borderWidth:1}]},
+      data:{labels:d.top_products.map(p=>p.name),datasets:[{label:'Units Sold',data:d.top_products.map(p=>p.qty),backgroundColor:'rgba(191,133,34,.7)',borderColor:'#BF8522',borderWidth:1}]},
       options:{plugins:{legend:{display:false}},indexAxis:'y'}
     });
   }catch(e){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Could not load analytics</div>'; }
@@ -3130,7 +3144,8 @@ async function loadAdminCustomers(){
   const el=document.getElementById('adminCustomersList');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
   try{
-    const res=await fetch(`/admin/customers?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const res=await adminFetch('/admin/customers');
+    if(!res) return;
     const custs=await res.json();
     if(!custs.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No customers yet</div>'; return; }
     el.innerHTML=custs.map(c=>`<div class="customer-row">
@@ -3144,7 +3159,8 @@ async function loadAdminReturns(){
   const el=document.getElementById('adminReturnsList');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
   try{
-    const res=await fetch(`/admin/returns?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const res=await adminFetch('/admin/returns');
+    if(!res) return;
     const returns=await res.json();
     if(!returns.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No return requests</div>'; return; }
     el.innerHTML=returns.map(r=>`<div class="admin-order-row">
@@ -3164,14 +3180,21 @@ async function loadAdminReturns(){
 
 async function adminUpdateReturnStatus(id,status){
   try{
-    await fetch(`/admin/returns/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,admin_email:window._currentUser.email})});
-    toast('Return status updated');
+    const r=await adminFetch(`/admin/returns/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    if(r&&r.ok) toast('Return status updated');
   }catch(e){ toast('Error'); }
 }
 
-function adminExportCSV(){
-  if(!window._currentUser) return;
-  window.open(`/admin/export/orders?admin_email=${encodeURIComponent(window._currentUser.email)}`, '_blank');
+async function adminExportCSV(){
+  try{
+    const res=await adminFetch('/admin/export/orders');
+    if(!res||!res.ok) return;
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='orders.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){ toast('Export failed'); }
 }
 
 /* ══════════ CART ABANDONMENT ══════════ */
@@ -3348,7 +3371,7 @@ async function loadAdminGiftCards(){
   const el=document.getElementById('adminGiftCardsList');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
   try{
-    const res=await fetch(`/admin/gift-cards?admin_email=${encodeURIComponent(window._currentUser.email)}`);
+    const res=await adminFetch('/admin/gift-cards');
     const cards=await res.json();
     if(!cards.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No gift cards yet</div>'; return; }
     el.innerHTML=cards.map(c=>`<div class="admin-order-row">
@@ -3606,7 +3629,7 @@ async function loadAdminPackages(){
   const el=document.getElementById('adminPackagesList');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
   try{
-    const r=await fetch('/admin/package-enquiries',{headers:{'x-admin-key':ADMIN_KEY}});
+    const r=await adminFetch('/admin/package-enquiries');
     const data=await r.json();
     if(!data.length){el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No enquiries yet</div>';return;}
     el.innerHTML=data.map(e=>`
@@ -3635,7 +3658,7 @@ async function loadAdminB2B(){
   const el=document.getElementById('adminB2BList');
   el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Loading…</div>';
   try{
-    const r=await fetch('/admin/b2b-enquiries',{headers:{'x-admin-key':ADMIN_KEY}});
+    const r=await adminFetch('/admin/b2b-enquiries');
     const data=await r.json();
     if(!data.length){el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">No B2B enquiries yet</div>';return;}
     el.innerHTML=data.map(e=>`
@@ -3662,9 +3685,38 @@ async function loadAdminB2B(){
 
 async function adminUpdateEnquiry(type,id,status){
   try{
-    await fetch(`/admin/${type}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY},body:JSON.stringify({status})});
+    await adminFetch(`/admin/${type}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
     toast('Status updated');
   }catch{toast('Failed to update status');}
+}
+
+/* ══════════ ADMIN SESSION TOKEN ══════════ */
+let _adminSession = null; // { token, exp }
+
+async function getAdminToken() {
+  if (_adminSession && _adminSession.exp > Date.now()) return _adminSession.token;
+  const user = window._auth && window._auth.currentUser;
+  if (!user) return null;
+  try {
+    const idToken = await user.getIdToken(/* forceRefresh= */ true);
+    const r = await fetch('/admin/session', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + idToken },
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    _adminSession = { token: d.token, exp: Date.now() + 7 * 3600 * 1000 };
+    return _adminSession.token;
+  } catch { return null; }
+}
+
+async function adminFetch(url, options = {}) {
+  const token = await getAdminToken();
+  if (!token) { toast('Admin auth failed — please sign in again'); return null; }
+  return fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), 'x-admin-token': token },
+  });
 }
 
 /* ══════════ PWA INSTALL PROMPT ══════════ */
