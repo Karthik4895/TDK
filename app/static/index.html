@@ -1436,7 +1436,7 @@
             <label class="mf-label">Password</label>
             <input class="mf-input" id="authPwdInput" type="password" placeholder="Min. 6 characters" />
           </div>
-          <div class="auth-err" id="authErr"></div>
+          <div class="auth-err" id="emailAuthErr"></div>
           <button class="auth-submit" id="authSubmitBtn" onclick="doEmailAuth()">Sign In</button>
           <div class="auth-divider"><span>or continue with</span></div>
           <button class="social-btn" onclick="doGoogle()">
@@ -1450,6 +1450,7 @@
         </div>
         <!-- Phone OTP fields -->
         <div id="phoneAuthFields" style="display:none">
+          <div class="auth-err" id="phoneAuthErr" style="min-height:18px"></div>
           <div id="phoneStep">
             <div class="mf-group">
               <label class="mf-label">Mobile Number</label>
@@ -1458,7 +1459,6 @@
                 <input class="mf-input" id="phoneInput" type="tel" placeholder="9876543210" maxlength="10" style="flex:1" oninput="this.value=this.value.replace(/\D/g,'')" />
               </div>
             </div>
-            <div class="auth-err" id="authErr"></div>
             <div id="recaptcha-container"></div>
             <button class="auth-submit" id="sendOtpBtn" onclick="sendOTP()">Send OTP →</button>
           </div>
@@ -1468,7 +1468,6 @@
               <label class="mf-label">Enter 6-digit OTP</label>
               <input class="mf-input" id="otpInput" type="tel" placeholder="• • • • • •" maxlength="6" style="font-size:22px;letter-spacing:8px;text-align:center" oninput="this.value=this.value.replace(/\D/g,'');if(this.value.length===6)verifyOTP()" />
             </div>
-            <div class="auth-err" id="authErr"></div>
             <button class="auth-submit" id="verifyOtpBtn" onclick="verifyOTP()">Verify & Sign In</button>
             <button onclick="resetPhoneAuth()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:6px">← Change number</button>
           </div>
@@ -2005,9 +2004,14 @@ function switchTab(tab){
   document.getElementById('emailAuthFields').style.display = isPhone ? 'none' : 'block';
   document.getElementById('phoneAuthFields').style.display = isPhone ? 'block' : 'none';
   if(!isPhone) document.getElementById('authSubmitBtn').textContent = tab==='in' ? 'Sign In' : 'Create Account';
-  document.getElementById('authErr').textContent = '';
+  document.getElementById('emailAuthErr').textContent = '';
+  document.getElementById('phoneAuthErr').textContent = '';
 }
-function setAuthErr(msg){ document.getElementById('authErr').textContent = msg; }
+function _activeAuthErrEl(){
+  const phoneVisible = document.getElementById('phoneAuthFields').style.display !== 'none';
+  return document.getElementById(phoneVisible ? 'phoneAuthErr' : 'emailAuthErr');
+}
+function setAuthErr(msg){ _activeAuthErrEl().textContent = msg; }
 async function doEmailAuth(){
   const email = document.getElementById('authEmailInput').value.trim();
   const pwd   = document.getElementById('authPwdInput').value;
@@ -2806,6 +2810,9 @@ function closeAbandon(){ document.getElementById('abandonPopup').style.display='
 let _recaptchaVerifier=null, _confirmationResult=null;
 
 async function sendOTP(){
+  if(!window._RecaptchaVerifier||!window._signInWithPhoneNumber){
+    setAuthErr('Auth not ready yet. Please wait a moment and try again.'); return;
+  }
   const phone=document.getElementById('phoneInput').value.trim().replace(/\D/g,'');
   if(phone.length!==10){ setAuthErr('Enter a valid 10-digit mobile number'); return; }
   const fullPhone='+91'+phone;
@@ -2815,8 +2822,11 @@ async function sendOTP(){
   try{
     if(!_recaptchaVerifier){
       _recaptchaVerifier=new window._RecaptchaVerifier(window._auth,'recaptcha-container',{
-        size:'invisible', callback:()=>{}, 'expired-callback':()=>{ _recaptchaVerifier=null; }
+        size:'invisible',
+        callback:()=>{},
+        'expired-callback':()=>{ _recaptchaVerifier=null; }
       });
+      await _recaptchaVerifier.render();
     }
     _confirmationResult=await window._signInWithPhoneNumber(fullPhone, _recaptchaVerifier);
     document.getElementById('otpSentTo').textContent=phone;
@@ -2824,9 +2834,13 @@ async function sendOTP(){
     document.getElementById('otpStep').style.display='block';
     toast('OTP sent to +91'+phone+' 📱');
   }catch(e){
-    const msg=e?.code==='auth/invalid-phone-number'?'Invalid phone number'
-      :e?.code==='auth/too-many-requests'?'Too many attempts. Try later.'
-      :'Failed to send OTP. Check the number and try again.';
+    console.error('OTP send error:', e);
+    const code=e?.code||'';
+    const msg=code==='auth/invalid-phone-number'?'Invalid phone number. Include country code.'
+      :code==='auth/too-many-requests'?'Too many attempts. Please wait and try again.'
+      :code==='auth/operation-not-allowed'?'Phone sign-in is not enabled. Contact support.'
+      :code==='auth/captcha-check-failed'?'reCAPTCHA failed. Please refresh and try again.'
+      :`Failed to send OTP (${code||e?.message||'unknown'}). Try again.`;
     setAuthErr(msg);
     if(_recaptchaVerifier){ try{_recaptchaVerifier.clear();}catch(_){} _recaptchaVerifier=null; }
     btn.disabled=false; btn.textContent='Send OTP →';
@@ -2843,13 +2857,19 @@ async function verifyOTP(){
     await _confirmationResult.confirm(otp);
     closeAuth(); toast('Phone verified! Welcome 🌿');
   }catch(e){
-    setAuthErr(e?.code==='auth/invalid-verification-code'?'Wrong OTP. Try again.':'Verification failed. Try again.');
+    console.error('OTP verify error:', e);
+    const code=e?.code||'';
+    const msg=code==='auth/invalid-verification-code'?'Wrong OTP. Please try again.'
+      :code==='auth/code-expired'?'OTP expired. Please request a new one.'
+      :'Verification failed. Please try again.';
+    setAuthErr(msg);
     btn.disabled=false; btn.textContent='Verify & Sign In';
   }
 }
 
 function resetPhoneAuth(){
   _confirmationResult=null;
+  if(_recaptchaVerifier){ try{_recaptchaVerifier.clear();}catch(_){} _recaptchaVerifier=null; }
   document.getElementById('otpStep').style.display='none';
   document.getElementById('phoneStep').style.display='block';
   document.getElementById('otpInput').value='';
