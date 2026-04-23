@@ -33,6 +33,7 @@ from app.memory import (
     save_package_enquiry, get_all_package_enquiries, update_package_enquiry_status,
     save_b2b_enquiry, get_all_b2b_enquiries, update_b2b_status,
     create_gift_card, get_gift_cards_for_user, get_all_gift_cards, get_gift_card_by_code, redeem_gift_card,
+    get_wallet_balance, get_wallet_transactions, add_wallet_credit, deduct_wallet, update_order_payment,
 )
 from app.config import APP_ENV, RESEND_API_KEY, ADMIN_EMAIL, ADMIN_SECRET, FIREBASE_API_KEY
 
@@ -702,6 +703,75 @@ async def admin_gift_cards(_: None = Depends(_require_admin)):
     return get_all_gift_cards()
 
 
+# ── Wallet ──────────────────────────────────────────────────────────────────────
+
+@app.get("/wallet/{user_id}", tags=["wallet"])
+async def fetch_wallet(user_id: str):
+    uid = user_id.strip()
+    return {
+        "balance": get_wallet_balance(uid),
+        "transactions": get_wallet_transactions(uid),
+    }
+
+
+class WalletTopUpRequest(BaseModel):
+    user_id: str
+    amount: int
+    payment_id: str = ""
+
+
+@app.post("/wallet/top-up", tags=["wallet"])
+async def wallet_top_up(req: WalletTopUpRequest):
+    if not req.user_id.strip():
+        raise HTTPException(status_code=422, detail="user_id required")
+    if req.amount < 50:
+        raise HTTPException(status_code=422, detail="Minimum top-up is ₹50")
+    new_balance = add_wallet_credit(
+        req.user_id.strip(), req.amount,
+        f"Top-up via Razorpay ({req.payment_id})" if req.payment_id else "Manual top-up",
+    )
+    return {"success": True, "new_balance": new_balance}
+
+
+class WalletUseRequest(BaseModel):
+    user_id: str
+    amount: int
+    description: str = "Order payment"
+
+
+@app.post("/wallet/use", tags=["wallet"])
+async def wallet_use(req: WalletUseRequest):
+    if not req.user_id.strip():
+        raise HTTPException(status_code=422, detail="user_id required")
+    result = deduct_wallet(req.user_id.strip(), req.amount, req.description)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed"))
+    return result
+
+
+class CODPayRequest(BaseModel):
+    user_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@app.post("/orders/{order_id}/pay-cod", tags=["orders"])
+async def pay_cod_order(order_id: int, req: CODPayRequest):
+    """Convert a COD order to a paid order after Razorpay payment."""
+    secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="Payment not configured")
+    body = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
+    expected = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, req.razorpay_signature):
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    result = update_order_payment(order_id, req.user_id.strip(), req.razorpay_payment_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed"))
+    return {"success": True, "payment_id": req.razorpay_payment_id}
+
+
 # ── Contact ─────────────────────────────────────────────────────────────────────
 
 class ContactRequest(BaseModel):
@@ -954,8 +1024,8 @@ async def _send_b2b_email(req):
             <h2 style="color:#d4a84a;margin:0">🏢 New B2B Enquiry</h2>
           </div>
           <div style="padding:24px;background:#fffdf8">
-            <p><strong>Company:</strong> {req.company_name}</p>
-            <p><strong>Contact:</strong> {req.contact_name}</p>
+            <p><strong>Company:</strong> {req.company}</p>
+            <p><strong>Contact:</strong> {req.contact}</p>
             <p><strong>Phone:</strong> {req.phone}</p>
             <p><strong>Email:</strong> {req.email or '—'}</p>
             <p><strong>Event Type:</strong> {req.event_type or '—'}</p>
@@ -971,7 +1041,7 @@ async def _send_b2b_email(req):
                 headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
                 json={"from": "Mehandi Tales <onboarding@resend.dev>", "to": [ADMIN_EMAIL],
                       "reply_to": req.email or ADMIN_EMAIL,
-                      "subject": f"🏢 B2B Enquiry — {req.company_name}", "html": html},
+                      "subject": f"🏢 B2B Enquiry — {req.company}", "html": html},
                 timeout=10,
             )
     except Exception as exc:

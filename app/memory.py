@@ -179,6 +179,23 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS wallet (
+                user_id TEXT PRIMARY KEY,
+                balance INTEGER DEFAULT 0,
+                updated_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS wallet_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
         for alter in [
             "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'confirmed'",
             "ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''",
@@ -781,6 +798,73 @@ def get_all_b2b_enquiries(limit: int = 300) -> list:
             "SELECT * FROM b2b_enquiries ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ── Wallet ──────────────────────────────────────────────────────────────────────
+
+def get_wallet_balance(user_id: str) -> int:
+    with _get_connection() as conn:
+        row = conn.execute("SELECT balance FROM wallet WHERE user_id=?", (user_id,)).fetchone()
+        return row["balance"] if row else 0
+
+
+def get_wallet_transactions(user_id: str, limit: int = 30) -> list:
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, amount, type, description, created_at FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def add_wallet_credit(user_id: str, amount: int, description: str = "") -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    with _get_connection() as conn:
+        conn.execute(
+            """INSERT INTO wallet (user_id, balance, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET balance=balance+excluded.balance, updated_at=excluded.updated_at""",
+            (user_id, amount, now),
+        )
+        conn.execute(
+            "INSERT INTO wallet_transactions (user_id, amount, type, description, created_at) VALUES (?, ?, 'credit', ?, ?)",
+            (user_id, amount, description, now),
+        )
+        conn.commit()
+        row = conn.execute("SELECT balance FROM wallet WHERE user_id=?", (user_id,)).fetchone()
+        return row["balance"] if row else 0
+
+
+def deduct_wallet(user_id: str, amount: int, description: str = "") -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    with _get_connection() as conn:
+        balance = get_wallet_balance(user_id)
+        if balance < amount:
+            return {"success": False, "error": "Insufficient wallet balance"}
+        conn.execute(
+            "UPDATE wallet SET balance=balance-?, updated_at=? WHERE user_id=?",
+            (amount, now, user_id),
+        )
+        conn.execute(
+            "INSERT INTO wallet_transactions (user_id, amount, type, description, created_at) VALUES (?, ?, 'debit', ?, ?)",
+            (user_id, amount, description, now),
+        )
+        conn.commit()
+        new_balance = get_wallet_balance(user_id)
+        return {"success": True, "new_balance": new_balance}
+
+
+def update_order_payment(order_id: int, user_id: str, new_payment_id: str) -> dict:
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM orders WHERE id=? AND user_id=?", (order_id, user_id)
+        ).fetchone()
+        if not row:
+            return {"ok": False, "error": "not_found"}
+        conn.execute(
+            "UPDATE orders SET payment_id=? WHERE id=?", (new_payment_id, order_id)
+        )
+        conn.commit()
+        return {"ok": True}
 
 
 def update_b2b_status(enquiry_id: int, status: str):

@@ -136,6 +136,7 @@
       --shadow:  rgba(58,31,16,.15);
       --muted:   #8B6448;
       --white:   #fff;
+      --cream:   #FDF8F0;
       --r:       18px;
     }
 
@@ -956,6 +957,22 @@
     .order-action-btn:hover{background:var(--gold-p);border-color:var(--gold)}
     .order-action-btn.cancel{border-color:#dc2626;color:#dc2626}
     .order-action-btn.cancel:hover{background:#fee2e2}
+    .order-action-btn.pay-now{border-color:var(--gold);background:var(--gold-p);color:var(--dark);font-weight:700}
+    .order-action-btn.pay-now:hover{background:var(--gold);color:#fff}
+    /* Wallet */
+    .wallet-balance-card{background:linear-gradient(135deg,#3A1F10,#6B3820);border-radius:16px;padding:20px 22px;color:#fff;margin-bottom:16px;position:relative;overflow:hidden}
+    .wallet-balance-card::after{content:'💰';position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:48px;opacity:.15}
+    .wallet-balance-label{font-size:11px;letter-spacing:1px;opacity:.7;text-transform:uppercase;margin-bottom:4px}
+    .wallet-balance-amount{font-size:32px;font-weight:800;color:#D4A84A;letter-spacing:-1px}
+    .wallet-topup-btn{display:block;width:100%;padding:12px;border:1.5px solid var(--gold);background:var(--gold-p);border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--dark);margin-bottom:16px;transition:.15s}
+    .wallet-topup-btn:hover{background:var(--gold);color:#fff}
+    .wallet-tx-list{display:flex;flex-direction:column;gap:8px}
+    .wallet-tx{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--cream);font-size:12px}
+    .wallet-tx-desc{color:var(--dark);font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wallet-tx-date{font-size:10px;color:#bbb;margin-top:2px}
+    .wallet-tx-amt{font-size:14px;font-weight:700;flex-shrink:0;margin-left:10px}
+    .wallet-tx-amt.credit{color:#059669}
+    .wallet-tx-amt.debit{color:#dc2626}
     /* UPI modal */
     .upi-modal-body{text-align:center;padding:10px 0}
     .upi-qr{width:180px;height:180px;border:3px solid var(--gold);border-radius:12px;margin:0 auto 12px;display:block}
@@ -1922,6 +1939,9 @@
         <div class="acct-menu-item" id="acctMenuLoyalty" onclick="acctNav('loyalty')">
           <span class="acct-menu-icon">🌿</span>Loyalty
         </div>
+        <div class="acct-menu-item" id="acctMenuWallet" onclick="acctNav('wallet')">
+          <span class="acct-menu-icon">💰</span>My Wallet
+        </div>
         <div class="acct-menu-item" id="acctMenuProfile" onclick="acctNav('profile')">
           <span class="acct-menu-icon">👤</span>Profile
         </div>
@@ -1996,6 +2016,19 @@
             <span style="font-size:20px">💎</span>
             <div><strong style="font-size:13px;color:var(--dark)">Platinum</strong> <span style="font-size:11px;color:var(--muted)">5000+ pts</span><br><span style="font-size:12px;color:#666">2× earn rate · Free delivery + VIP</span></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Section: Wallet -->
+      <div id="acctSectionWallet" class="acct-section">
+        <div class="wallet-balance-card">
+          <div class="wallet-balance-label">Available Balance</div>
+          <div class="wallet-balance-amount" id="walletBalanceAmt">₹0</div>
+        </div>
+        <button class="wallet-topup-btn" onclick="openWalletTopUp()">+ Add Money to Wallet</button>
+        <p style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:10px">RECENT TRANSACTIONS</p>
+        <div class="wallet-tx-list" id="walletTxList">
+          <div class="orders-empty">Loading…</div>
         </div>
       </div>
 
@@ -2433,7 +2466,7 @@ function openAccount(){
 function closeAccount(){ document.getElementById('acctModal').classList.remove('on'); }
 
 function acctNav(section){
-  const sections = ['orders','wishlist','giftcards','referral','loyalty','profile'];
+  const sections = ['orders','wishlist','giftcards','referral','loyalty','wallet','profile'];
   sections.forEach(s => {
     document.getElementById('acctMenu'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('active', s===section);
     document.getElementById('acctSection'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('active', s===section);
@@ -2442,6 +2475,7 @@ function acctNav(section){
   if(section==='wishlist') loadAcctWishlist();
   if(section==='giftcards') loadMyGiftCards();
   if(section==='loyalty') loadTierInfo();
+  if(section==='wallet') loadWallet();
 }
 
 async function saveProfileName(){
@@ -2512,6 +2546,7 @@ async function loadOrders(uid){
         <div class="order-items">${items}</div>
         <div class="order-pid">Ref: ${o.payment_id}</div>
         <div class="order-actions">
+          ${o.payment_id&&o.payment_id.startsWith('COD-')&&status!=='cancelled'?`<button class="order-action-btn pay-now" onclick="payOrderNow(${o.id},${o.total})">💳 Pay Now</button>`:''}
           <button class="order-action-btn" onclick="reorder('${itemsJson}')">🔁 Reorder</button>
           <button class="order-action-btn" onclick="printInvoice(${o.id},'${date}','${items.replace(/'/g,"\\'")}',${o.total},'${o.payment_id}','${status}')">🧾 Invoice</button>
           ${status==='delivered'?`<button class="order-action-btn" onclick="openReturn(${o.id},'${itemsJson}')">↩ Return</button>`:''}
@@ -2531,6 +2566,104 @@ async function cancelOrder(orderId){
     if(d.cancelled){ toast('Order cancelled'); loadOrders(window._currentUser.uid); }
     else toast('Could not cancel: '+d.detail);
   }catch(e){ toast('Error cancelling order'); }
+}
+
+/* ══════════ COD PAY NOW ══════════ */
+async function payOrderNow(orderId, orderTotal){
+  if(!window._currentUser){ openAuth(); return; }
+  if(!window.RAZORPAY_KEY_ID){ toast('Payment not configured'); return; }
+  try{
+    const rzpOrder = await fetch('/create-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:orderTotal*100,currency:'INR',receipt:'cod-pay-'+orderId})}).then(r=>r.json());
+    if(!rzpOrder.order_id){ toast('Could not initiate payment'); return; }
+    const opts={
+      key: window.RAZORPAY_KEY_ID,
+      amount: orderTotal*100,
+      currency:'INR',
+      name:'Mehandi Tales By Divya',
+      description:'Payment for COD Order #'+orderId,
+      order_id: rzpOrder.order_id,
+      handler: async function(response){
+        try{
+          const vr=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature})});
+          const vd=await vr.json();
+          if(vd.success){
+            await fetch('/orders/'+orderId+'/pay-cod',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:window._currentUser.uid,razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature})});
+            toast('Payment successful! Order updated 🌿');
+            loadOrders(window._currentUser.uid);
+          } else { toast('Payment verification failed'); }
+        }catch(e){ toast('Error updating order'); }
+      },
+      prefill:{name:window._currentUser.displayName||'',email:window._currentUser.email||''},
+      theme:{color:'#BF8522'},
+      modal:{ondismiss:()=>{ toast('Payment cancelled'); }}
+    };
+    new Razorpay(opts).open();
+  }catch(e){ toast('Error initiating payment'); }
+}
+
+/* ══════════ WALLET ══════════ */
+let _walletTopUpAmount = 0;
+
+async function loadWallet(){
+  if(!window._currentUser) return;
+  const uid = window._currentUser.uid;
+  try{
+    const d = await fetch('/wallet/'+encodeURIComponent(uid)).then(r=>r.json());
+    document.getElementById('walletBalanceAmt').textContent = '₹'+(d.balance||0).toLocaleString('en-IN');
+    const txEl = document.getElementById('walletTxList');
+    if(!d.transactions||!d.transactions.length){
+      txEl.innerHTML='<div class="orders-empty">No transactions yet</div>';
+      return;
+    }
+    txEl.innerHTML = d.transactions.map(t=>{
+      const date = new Date(t.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+      const sign = t.type==='credit' ? '+' : '-';
+      return `<div class="wallet-tx">
+        <div style="flex:1;min-width:0">
+          <div class="wallet-tx-desc">${t.description||t.type}</div>
+          <div class="wallet-tx-date">${date}</div>
+        </div>
+        <div class="wallet-tx-amt ${t.type}">${sign}₹${Number(t.amount).toLocaleString('en-IN')}</div>
+      </div>`;
+    }).join('');
+  }catch(e){ document.getElementById('walletTxList').innerHTML='<div class="orders-empty">Could not load wallet</div>'; }
+}
+
+function openWalletTopUp(){
+  if(!window._currentUser){ openAuth(); return; }
+  const amt = parseInt(prompt('Enter amount to add (₹50 minimum):','200'));
+  if(!amt||isNaN(amt)||amt<50){ toast('Minimum top-up is ₹50'); return; }
+  if(!window.RAZORPAY_KEY_ID){ toast('Payment not configured'); return; }
+  _walletTopUpAmount = amt;
+  fetch('/create-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:amt*100,currency:'INR',receipt:'wallet-topup-'+Date.now()})})
+    .then(r=>r.json())
+    .then(rzpOrder=>{
+      if(!rzpOrder.order_id){ toast('Could not initiate payment'); return; }
+      const opts={
+        key: window.RAZORPAY_KEY_ID,
+        amount: amt*100,
+        currency:'INR',
+        name:'Mehandi Tales By Divya',
+        description:'Wallet Top-Up ₹'+amt,
+        order_id: rzpOrder.order_id,
+        handler: async function(response){
+          try{
+            const vr=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature})});
+            const vd=await vr.json();
+            if(vd.success){
+              await fetch('/wallet/top-up',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:window._currentUser.uid,amount:amt,payment_id:response.razorpay_payment_id})});
+              toast('₹'+amt+' added to your wallet! 🌿');
+              loadWallet();
+            } else { toast('Payment verification failed'); }
+          }catch(e){ toast('Error adding to wallet'); }
+        },
+        prefill:{name:window._currentUser.displayName||'',email:window._currentUser.email||''},
+        theme:{color:'#BF8522'},
+        modal:{ondismiss:()=>{ toast('Payment cancelled'); }}
+      };
+      new Razorpay(opts).open();
+    })
+    .catch(()=>toast('Error initiating payment'));
 }
 
 function reorder(itemsJson){
