@@ -44,6 +44,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getAuth, onAuthStateChanged, signOut,
              createUserWithEmailAndPassword, signInWithEmailAndPassword,
+             updateProfile,
              GoogleAuthProvider, OAuthProvider, signInWithPopup,
              RecaptchaVerifier, signInWithPhoneNumber }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -98,6 +99,7 @@
       return signInWithPopup(auth, p);
     };
     window._auth = auth;
+    window._updateProfile = (user, data) => updateProfile(user, data);
     window._RecaptchaVerifier = RecaptchaVerifier;
     window._signInWithPhoneNumber = (phone, verifier) => signInWithPhoneNumber(auth, phone, verifier);
   </script>
@@ -181,11 +183,16 @@
     .user-pill img { width:30px; height:30px; border-radius:50%; object-fit:cover; }
     .user-pill span { font-size:13px; font-weight:600; color:var(--dark); }
     /* Account modal */
-    .acct-header { display:flex; align-items:center; gap:14px; padding:18px 0 14px; border-bottom:1px solid var(--border); margin-bottom:18px; }
-    .acct-avatar { width:54px; height:54px; border-radius:50%; object-fit:cover; background:var(--cream); border:2px solid var(--gold); }
-    .acct-avatar-ph { width:54px; height:54px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--white); font-weight:700; flex-shrink:0; }
-    .acct-info h3 { margin:0 0 2px; font-size:16px; color:var(--dark); }
-    .acct-info p  { margin:0; font-size:12px; color:#888; }
+    .acct-avatar { width:56px; height:56px; border-radius:50%; object-fit:cover; border:2.5px solid var(--gold); }
+    .acct-avatar-ph { width:56px; height:56px; border-radius:50%; background:var(--gold-g); display:flex; align-items:center; justify-content:center; font-size:24px; color:var(--white); font-weight:800; flex-shrink:0; }
+    .acct-profile-card { background:var(--gold-p); border:1.5px solid var(--border); border-radius:16px; padding:16px 18px; margin-bottom:16px; display:flex; align-items:center; gap:14px; }
+    .acct-menu-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px; }
+    .acct-menu-item { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:14px 6px; border:1.5px solid var(--border); border-radius:14px; cursor:pointer; transition:.15s; background:var(--white); font-size:11px; font-weight:700; color:var(--muted); text-align:center; }
+    .acct-menu-item:hover { border-color:var(--gold); background:var(--gold-p); color:var(--dark); }
+    .acct-menu-item.active { border-color:var(--gold); background:var(--gold-p); color:var(--gold); }
+    .acct-menu-icon { font-size:20px; }
+    .acct-section { display:none; }
+    .acct-section.active { display:block; }
     .orders-empty { text-align:center; padding:30px 0; color:#aaa; font-size:14px; }
     .order-card { border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; background:var(--cream); }
     .order-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
@@ -193,7 +200,11 @@
     .order-card-total { font-size:15px; font-weight:700; color:var(--gold); }
     .order-items { font-size:13px; color:#555; line-height:1.7; }
     .order-pid { font-size:10px; color:#bbb; margin-top:6px; }
-    .acct-signout { width:100%; margin-top:18px; padding:10px; border:none; border-radius:8px; background:#8B1A1A; color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+    .acct-signout { width:100%; margin-top:8px; padding:12px; border:none; border-radius:12px; background:#8B1A1A; color:#fff; font-size:14px; font-weight:700; cursor:pointer; letter-spacing:.3px; }
+    /* Auth modal sign-up extras */
+    .signup-field { display:none; }
+    .auth-success-box { background:#d1fae5; border-radius:12px; padding:14px 16px; margin-bottom:16px; text-align:center; }
+    .auth-success-box p { color:#059669; font-size:13px; font-weight:700; margin:0; }
     /* Auth modal */
     .auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:22px; }
     .auth-tab {
@@ -1611,6 +1622,14 @@
         </div>
         <!-- Email/password fields -->
         <div id="emailAuthFields">
+          <div id="authSuccessBox" class="auth-success-box" style="display:none">
+            <div style="font-size:28px;margin-bottom:6px">🎉</div>
+            <p id="authSuccessMsg">Account created! Please sign in below.</p>
+          </div>
+          <div class="mf-group signup-field" id="authNameGroup">
+            <label class="mf-label">Full Name</label>
+            <input class="mf-input" id="authNameInput" type="text" placeholder="Your full name" />
+          </div>
           <div class="mf-group">
             <label class="mf-label">Email</label>
             <input class="mf-input" id="authEmailInput" type="email" placeholder="you@email.com" />
@@ -1618,6 +1637,10 @@
           <div class="mf-group">
             <label class="mf-label">Password</label>
             <input class="mf-input" id="authPwdInput" type="password" placeholder="Min. 6 characters" />
+          </div>
+          <div class="mf-group signup-field" id="authConfirmPwdGroup">
+            <label class="mf-label">Confirm Password</label>
+            <input class="mf-input" id="authConfirmPwd" type="password" placeholder="Re-enter password" />
           </div>
           <div class="auth-err" id="emailAuthErr"></div>
           <button class="auth-submit" id="authSubmitBtn" onclick="doEmailAuth()">Sign In</button>
@@ -1847,58 +1870,139 @@
 
 <!-- ══════════ ACCOUNT MODAL ══════════ -->
 <div class="modal-overlay" id="acctModal">
-  <div class="modal-box" style="max-width:420px">
+  <div class="modal-box" style="max-width:440px">
     <div class="modal-head">
       <div><h3>My Account</h3></div>
       <button class="modal-close" onclick="closeAccount()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="acct-header">
+
+      <!-- Profile card -->
+      <div class="acct-profile-card">
         <div id="acctAvatarWrap"></div>
-        <div class="acct-info">
-          <h3 id="acctName">—</h3>
-          <p id="acctEmail">—</p>
+        <div style="flex:1;min-width:0">
+          <h3 id="acctName" style="margin:0 0 2px;font-size:15px;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</h3>
+          <p id="acctEmail" style="margin:0 0 6px;font-size:12px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</p>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="tier-badge" id="tierBadge" style="font-size:11px;padding:3px 10px;border-radius:50px;font-weight:800;display:none"></span>
+            <span style="font-size:11px;color:var(--gold);font-weight:700" id="acctLoyalty"></span>
+          </div>
         </div>
       </div>
-      <div class="ref-box">
-        <div class="ref-box-head">
-          <span>🔗 Your Referral Code</span>
-          <span class="ref-stats" id="refStats"></span>
+
+      <!-- Menu grid -->
+      <div class="acct-menu-grid">
+        <div class="acct-menu-item active" id="acctMenuOrders" onclick="acctNav('orders')">
+          <span class="acct-menu-icon">📦</span>My Orders
         </div>
-        <div class="ref-code-row">
-          <span class="ref-code" id="refCode">—</span>
-          <button class="ref-copy" onclick="copyRefCode()">Copy</button>
-          <button class="ref-share" onclick="shareRefCode()">WhatsApp</button>
+        <div class="acct-menu-item" id="acctMenuWishlist" onclick="acctNav('wishlist')">
+          <span class="acct-menu-icon">❤️</span>Wishlist
         </div>
-        <p class="ref-note">Friend gets ₹50 off · You earn ₹100 loyalty points 🌿</p>
+        <div class="acct-menu-item" id="acctMenuGiftcards" onclick="acctNav('giftcards')">
+          <span class="acct-menu-icon">🎁</span>Gift Cards
+        </div>
+        <div class="acct-menu-item" id="acctMenuReferral" onclick="acctNav('referral')">
+          <span class="acct-menu-icon">🔗</span>Refer &amp; Earn
+        </div>
+        <div class="acct-menu-item" id="acctMenuLoyalty" onclick="acctNav('loyalty')">
+          <span class="acct-menu-icon">🌿</span>Loyalty
+        </div>
+        <div class="acct-menu-item" id="acctMenuProfile" onclick="acctNav('profile')">
+          <span class="acct-menu-icon">👤</span>Profile
+        </div>
       </div>
-      <!-- Gift Cards quick row -->
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button onclick="openGiftCardModal()" style="flex:1;padding:9px;border:1.5px solid var(--gold);background:var(--gold-p);border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--dark)">🎁 Buy Gift Card</button>
-        <button onclick="loadMyGiftCards();document.getElementById('myGiftCardsSection').style.display=document.getElementById('myGiftCardsSection').style.display==='none'?'block':'none'" style="flex:1;padding:9px;border:1.5px solid var(--border);background:var(--white);border-radius:10px;cursor:pointer;font-size:12px;font-weight:600;color:var(--dark)">🎟 My Gift Cards</button>
+
+      <!-- Section: Orders -->
+      <div id="acctSectionOrders" class="acct-section active">
+        <div id="ordersList"><div class="orders-empty">Loading…</div></div>
       </div>
-      <div id="myGiftCardsSection" style="display:none;margin-bottom:14px">
+
+      <!-- Section: Wishlist -->
+      <div id="acctSectionWishlist" class="acct-section">
+        <div id="acctWishlistList"><div class="orders-empty">Loading…</div></div>
+      </div>
+
+      <!-- Section: Gift Cards -->
+      <div id="acctSectionGiftcards" class="acct-section">
+        <button onclick="openGiftCardModal()" style="width:100%;margin-bottom:14px;padding:11px;border:1.5px solid var(--gold);background:var(--gold-p);border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--dark)">🎁 Buy a Gift Card for Someone</button>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:600">MY GIFT CARDS</p>
         <div id="myGiftCardsList"><div class="orders-empty">Loading…</div></div>
       </div>
-      <div id="loyaltyTierSection" style="display:none;margin-bottom:14px;padding:14px;border:1.5px solid var(--border);border-radius:14px;background:var(--gold-p)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span class="tier-badge" id="tierBadge" style="font-size:13px;padding:4px 12px;border-radius:50px;font-weight:800"></span>
-          <span style="font-size:11px;color:var(--muted)" id="tierNextLabel"></span>
+
+      <!-- Section: Referral -->
+      <div id="acctSectionReferral" class="acct-section">
+        <div class="ref-box" style="margin-bottom:0">
+          <div class="ref-box-head">
+            <span>🔗 Your Referral Code</span>
+            <span class="ref-stats" id="refStats"></span>
+          </div>
+          <div class="ref-code-row">
+            <span class="ref-code" id="refCode">—</span>
+            <button class="ref-copy" onclick="copyRefCode()">Copy</button>
+            <button class="ref-share" onclick="shareRefCode()">WhatsApp</button>
+          </div>
+          <p class="ref-note">Friend gets ₹50 off · You earn ₹100 loyalty points 🌿</p>
         </div>
-        <div style="background:#e5d5b5;border-radius:50px;height:7px;margin-bottom:8px;overflow:hidden">
-          <div id="tierProgressBar" style="height:100%;border-radius:50px;transition:width .4s;background:var(--gold-g);width:0%"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between">
-          <span style="font-size:11px;color:var(--muted)" id="tierPtsLabel"></span>
-          <span style="font-size:11px;color:var(--gold);font-weight:700" id="tierMultLabel"></span>
+        <div style="margin-top:14px;padding:12px;border-radius:12px;background:var(--gold-p);border:1px solid var(--border);font-size:13px;color:var(--dark)">
+          <strong>How it works:</strong><br>
+          1. Share your code with a friend<br>
+          2. They get ₹50 off their first order<br>
+          3. You get ₹100 loyalty points added 🎉
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h4 style="margin:0;font-size:14px;color:var(--dark)">My Orders</h4>
-        <span style="font-size:12px;color:var(--gold);font-weight:700" id="acctLoyalty"></span>
+
+      <!-- Section: Loyalty -->
+      <div id="acctSectionLoyalty" class="acct-section">
+        <div style="margin-bottom:16px">
+          <div style="background:#e5d5b5;border-radius:50px;height:8px;margin-bottom:10px;overflow:hidden">
+            <div id="tierProgressBar" style="height:100%;border-radius:50px;transition:width .5s;background:var(--gold-g);width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:12px;color:var(--muted)" id="tierPtsLabel"></span>
+            <span style="font-size:12px;color:var(--gold);font-weight:700" id="tierMultLabel"></span>
+          </div>
+          <span style="font-size:12px;color:var(--muted)" id="tierNextLabel"></span>
+        </div>
+        <p style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:10px">TIER BENEFITS</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:12px;border-radius:12px;border:1.5px solid #cd7f3266;background:#cd7f3211;display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">🥉</span>
+            <div><strong style="font-size:13px;color:var(--dark)">Bronze</strong> <span style="font-size:11px;color:var(--muted)">0–499 pts</span><br><span style="font-size:12px;color:#666">1× earn rate · Basic rewards</span></div>
+          </div>
+          <div style="padding:12px;border-radius:12px;border:1.5px solid #9ca3af66;background:#9ca3af11;display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">🥈</span>
+            <div><strong style="font-size:13px;color:var(--dark)">Silver</strong> <span style="font-size:11px;color:var(--muted)">500–1499 pts</span><br><span style="font-size:12px;color:#666">1.2× earn rate · Priority booking</span></div>
+          </div>
+          <div style="padding:12px;border-radius:12px;border:1.5px solid #BF852266;background:#BF852211;display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">🥇</span>
+            <div><strong style="font-size:13px;color:var(--dark)">Gold</strong> <span style="font-size:11px;color:var(--muted)">1500–4999 pts</span><br><span style="font-size:12px;color:#666">1.5× earn rate · Early design access</span></div>
+          </div>
+          <div style="padding:12px;border-radius:12px;border:1.5px solid #6B382066;background:#6B382011;display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">💎</span>
+            <div><strong style="font-size:13px;color:var(--dark)">Platinum</strong> <span style="font-size:11px;color:var(--muted)">5000+ pts</span><br><span style="font-size:12px;color:#666">2× earn rate · Free delivery + VIP</span></div>
+          </div>
+        </div>
       </div>
-      <div id="ordersList"><div class="orders-empty">Loading…</div></div>
-      <button class="acct-signout" onclick="doSignOut();closeAccount()">Sign Out</button>
+
+      <!-- Section: Profile -->
+      <div id="acctSectionProfile" class="acct-section">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="mf-group" style="margin-bottom:0">
+            <label class="mf-label">Display Name</label>
+            <div style="display:flex;gap:8px">
+              <input class="mf-input" id="profileNameInput" placeholder="Your full name" style="flex:1" />
+              <button onclick="saveProfileName()" style="padding:0 16px;border:1.5px solid var(--gold);background:var(--gold-p);border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--dark);white-space:nowrap">Save</button>
+            </div>
+          </div>
+          <div class="mf-group" style="margin-bottom:0">
+            <label class="mf-label">Email</label>
+            <input class="mf-input" id="profileEmailDisplay" disabled style="background:var(--bg2);color:#888;cursor:not-allowed" />
+          </div>
+          <hr style="border:none;border-top:1px solid var(--border)" />
+          <button class="acct-signout" onclick="doSignOut();closeAccount()">🚪 Sign Out</button>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -2202,14 +2306,19 @@ function openAuth(){
 function closeAuth(){ document.getElementById('authModal').classList.remove('on'); }
 function switchTab(tab){
   const isPhone = tab==='phone';
+  const isUp = tab==='up';
   document.getElementById('tabSignIn').classList.toggle('active', tab==='in');
-  document.getElementById('tabSignUp').classList.toggle('active', tab==='up');
+  document.getElementById('tabSignUp').classList.toggle('active', isUp);
   document.getElementById('tabPhone').classList.toggle('active', isPhone);
   document.getElementById('emailAuthFields').style.display = isPhone ? 'none' : 'block';
   document.getElementById('phoneAuthFields').style.display = isPhone ? 'block' : 'none';
-  if(!isPhone) document.getElementById('authSubmitBtn').textContent = tab==='in' ? 'Sign In' : 'Create Account';
+  if(!isPhone){
+    document.getElementById('authSubmitBtn').textContent = isUp ? 'Create Account →' : 'Sign In →';
+    document.querySelectorAll('.signup-field').forEach(el => el.style.display = isUp ? 'block' : 'none');
+  }
   document.getElementById('emailAuthErr').textContent = '';
   document.getElementById('phoneAuthErr').textContent = '';
+  document.getElementById('authSuccessBox').style.display = 'none';
 }
 function _activeAuthErrEl(){
   const phoneVisible = document.getElementById('phoneAuthFields').style.display !== 'none';
@@ -2221,18 +2330,40 @@ async function doEmailAuth(){
   const pwd   = document.getElementById('authPwdInput').value;
   const isSignUp = document.getElementById('tabSignUp').classList.contains('active');
   if(!email||!pwd){ setAuthErr('Please enter email and password'); return; }
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
   try{
-    if(isSignUp) await window._fbEmailSignUp(email,pwd);
-    else         await window._fbEmailSignIn(email,pwd);
-    closeAuth(); toast('Welcome! You are signed in 🌿');
+    if(isSignUp){
+      const name = document.getElementById('authNameInput').value.trim();
+      const confirmPwd = document.getElementById('authConfirmPwd').value;
+      if(pwd !== confirmPwd){ setAuthErr('Passwords do not match'); btn.disabled=false; return; }
+      const cred = await window._fbEmailSignUp(email, pwd);
+      if(name && window._updateProfile){
+        await window._updateProfile(cred.user, { displayName: name });
+      }
+      // Sign out immediately so user must explicitly sign in
+      await window._fbSignOut();
+      document.getElementById('authSuccessBox').style.display = 'block';
+      document.getElementById('authSuccessMsg').textContent = name
+        ? `Welcome, ${name}! Account created. Please sign in.`
+        : 'Account created! Please sign in below.';
+      switchTab('in');
+      document.getElementById('authEmailInput').value = email;
+    } else {
+      await window._fbEmailSignIn(email, pwd);
+      closeAuth();
+      toast('Welcome back! 🌿');
+    }
   }catch(e){
-    const msg = e.code==='auth/user-not-found'||e.code==='auth/wrong-password' ? 'Incorrect email or password'
+    const msg = e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'
+              ? 'Incorrect email or password'
               : e.code==='auth/email-already-in-use' ? 'Account already exists — try Sign In'
               : e.code==='auth/weak-password' ? 'Password must be at least 6 characters'
               : e.code==='auth/invalid-email' ? 'Invalid email address'
               : 'Error: '+e.message;
     setAuthErr(msg);
   }
+  btn.disabled = false;
 }
 async function doGoogle(){
   try{
@@ -2267,7 +2398,6 @@ window._currentUser = null;
 function openAccount(){
   if(!window._currentUser){ openAuth(); return; }
   const u = window._currentUser;
-  // avatar
   const wrap = document.getElementById('acctAvatarWrap');
   if(u.photoURL){
     wrap.innerHTML = `<img class="acct-avatar" src="${u.photoURL}" alt="avatar">`;
@@ -2275,15 +2405,61 @@ function openAccount(){
     const initial = (u.displayName||u.email||'U')[0].toUpperCase();
     wrap.innerHTML = `<div class="acct-avatar-ph">${initial}</div>`;
   }
-  document.getElementById('acctName').textContent  = u.displayName || 'My Account';
+  document.getElementById('acctName').textContent  = u.displayName || u.email.split('@')[0];
   document.getElementById('acctEmail').textContent = u.email || '';
+  document.getElementById('acctLoyalty').textContent = loyaltyBalance ? `🌿 ${loyaltyBalance} pts` : '';
+  // Profile section pre-fill
+  document.getElementById('profileNameInput').value = u.displayName || '';
+  document.getElementById('profileEmailDisplay').value = u.email || '';
   document.getElementById('acctModal').classList.add('on');
-  const acctEl=document.getElementById('acctLoyalty');
-  if(acctEl) acctEl.textContent=loyaltyBalance?`🌿 ${loyaltyBalance} pts`:'';
-  loadOrders(u.uid);
+  acctNav('orders');
   loadTierInfo();
 }
 function closeAccount(){ document.getElementById('acctModal').classList.remove('on'); }
+
+function acctNav(section){
+  const sections = ['orders','wishlist','giftcards','referral','loyalty','profile'];
+  sections.forEach(s => {
+    document.getElementById('acctMenu'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('active', s===section);
+    document.getElementById('acctSection'+s.charAt(0).toUpperCase()+s.slice(1)).classList.toggle('active', s===section);
+  });
+  if(section==='orders') loadOrders(window._currentUser.uid);
+  if(section==='wishlist') loadAcctWishlist();
+  if(section==='giftcards') loadMyGiftCards();
+  if(section==='loyalty') loadTierInfo();
+}
+
+async function saveProfileName(){
+  const name = document.getElementById('profileNameInput').value.trim();
+  if(!name || !window._currentUser) return;
+  try{
+    await window._updateProfile(window._currentUser, { displayName: name });
+    document.getElementById('acctName').textContent = name;
+    const pill = document.getElementById('userName');
+    if(pill) pill.textContent = name.split(' ')[0];
+    toast('Name updated 🌿');
+  }catch{ toast('Could not update name'); }
+}
+
+async function loadAcctWishlist(){
+  const el = document.getElementById('acctWishlistList');
+  const user = window._currentUser;
+  if(!user){ el.innerHTML='<div class="orders-empty">Sign in to view wishlist</div>'; return; }
+  el.innerHTML = '<div class="orders-empty">Loading…</div>';
+  try{
+    const r = await fetch('/wishlist/'+encodeURIComponent(user.uid));
+    const d = await r.json();
+    if(!d.items||!d.items.length){ el.innerHTML='<div class="orders-empty">No items saved yet ❤️</div>'; return; }
+    el.innerHTML = d.items.map(item=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--dark)">${item.name}</div>
+          <div style="font-size:12px;color:var(--gold);font-weight:700">₹${item.price}</div>
+        </div>
+        <button onclick="addToCart(${JSON.stringify(item).replace(/"/g,'&quot;')});acctNav('orders');toast('Added to cart!')" style="padding:7px 14px;border:1.5px solid var(--gold);background:var(--gold-p);border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--dark)">+ Cart</button>
+      </div>`).join('');
+  }catch{ el.innerHTML='<div class="orders-empty">Could not load wishlist</div>'; }
+}
 const TL_STEPS=['confirmed','packed','shipped','delivered'];
 function orderTimeline(status){
   const si=TL_STEPS.indexOf(status);
@@ -3375,24 +3551,26 @@ async function loadTierInfo(){
     const r=await fetch('/loyalty/'+user.uid+'/tier');
     if(!r.ok) return;
     const d=await r.json();
-    const sec=document.getElementById('loyaltyTierSection');
-    sec.style.display='block';
+    // Badge in profile card header
     const badge=document.getElementById('tierBadge');
     badge.textContent=d.tier.icon+' '+d.tier.name;
     badge.style.background=d.tier.color+'22';
     badge.style.color=d.tier.color;
     badge.style.border='1.5px solid '+d.tier.color+'66';
+    badge.style.display='inline-flex';
+    // Points in header
     document.getElementById('acctLoyalty').textContent='🌿 '+d.points+' pts';
+    // Loyalty section details
     document.getElementById('tierPtsLabel').textContent=d.points+' points earned';
     document.getElementById('tierMultLabel').textContent=d.tier.multiplier+'× earn rate';
     if(d.next_tier){
-      const progress=Math.min(100,Math.round((d.points-d.tier.min)/(d.next_tier.min-d.tier.min)*100));
+      const range=d.next_tier.min-d.tier.min;
+      const progress=range>0?Math.min(100,Math.round((d.points-d.tier.min)/range*100)):100;
       document.getElementById('tierProgressBar').style.width=progress+'%';
-      const needed=d.next_tier.min-d.points;
-      document.getElementById('tierNextLabel').textContent=needed+' pts to '+d.next_tier.name;
+      document.getElementById('tierNextLabel').textContent=(d.next_tier.min-d.points)+' pts to reach '+d.next_tier.name;
     } else {
       document.getElementById('tierProgressBar').style.width='100%';
-      document.getElementById('tierNextLabel').textContent='Max tier reached!';
+      document.getElementById('tierNextLabel').textContent='🏆 Maximum tier reached!';
     }
   }catch{}
 }
